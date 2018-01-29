@@ -4,10 +4,9 @@
 
 
 
-
 <#
     .SYNOPSIS
-        Determines Malifaux averages
+        averages
 
     .DESCRIPTION
 
@@ -35,91 +34,108 @@
 
 
 
-# ============================================================================================== 
-# Wrapper Setup
-# Load libraries
-# ============================================================================================== 
-param (
-    
-        [int]$AttStat,             #The value of the attacker's relevant stat 
-        [int]$AttCards,            #The number of cards the attacker is flipping 
-        [switch]$AttPos,           #True of the attacker is on a positive twist defaults to true
-        [switch]$AttNeg,           #True of the attacker is on a negative twist defaults to false
-        [int]$DefStat,             #The value of the defender's relevant stat 
-        [int]$DefCards,            #The number of cards the defender is flipping 
-        [switch]$DefPos,           #True of the defender is on a positive twist defaults to true
-        [switch]$DefNeg            #True of the defender is on a negative twist defaults to false
-    )
+######################################################################
+## Variables
+######################################################################
+
+#how many nodes (coins flipped, dice rolled, etc...)
+$nodes = 3
+
+#the system being used
+$system = 'xw'
+
+#the delimiter that seperates each node in each combo row
+$delimiter = ''
+
+#Table of all possible outcomes.
+$global:aryCombos = @()
+
+#Temporayr Table used to create the table of all possible outcomes
+$global:aryCombosTemp = @()
 
 
 
-# ============================================================================================== 
-# Determine if there is positive or negative twist.
-if ($AttNeg) {
-    $AttPos = $false
-} else {
-    $AttPos = $true
-}
-
-if ($DefNeg) {
-    $DefPos = $false
-} else {
-    $DefPos = $true
-}
-
-# ============================================================================================== 
-# Card Draw Functions
-# ============================================================================================== 
-
-#Constants
-
-$freshDeck = 0,1,1,2,2,3,3,14      #array represening a fresh deck of cards
 
 
-#generate all possible card draws by each side
-
-$attResults = @()
-$defResults = @()
 
 
-function PopulateResults2{
+
+
+
+
+
+######################################################################
+## Create-DiceComboTable
+## Creates a table containing all the possible outcomes
+## This routine is best suited for dice and similar models, 
+## where each node value can occure on each die.  It is not suited
+## for card draw modles where a single instance of a card can only
+## be drawn once.
+######################################################################
+
+
+function Create-DiceComboTable {
     param(
-        [int]$DrawSize=1,    #The number of cards to draw
-        [int[]]$CardList,    #the list of cards for this element
-        [switch]$Att,        #true if the attacker is be populated
-        [switch]$Def         #true if the defender is be populated
+        [Parameter(Mandatory=$true)]
+        [int]$Nodes                      #the number of items dice rolled, cards drawn, etc.
     )
-
-
-    if ($DrawSize -le 1) {
-        Write-Output "drawsize small"
-        Write-Output $CardList
-        #write final array
-        $attResults = $CardList
-        return
-    }
-
-    if($att) {
-        Write-Output "Attacker draws $drawsize"
-    }elseif($def){
-        Write-Output "Defender draws $drawsize"
-    }else{
-        write-output "No recipient (Att/Def) Specified.  Exiting."
-        return
+    
+    #Seed the possible combo array by creating an entry for each possible outcome
+    #for a single node
+    foreach($value in $global:aryValues){
+        $global:aryCombos += $value + $delimiter
     }
 
 
-    foreach ($card in $freshDeck) {
-        Write-Output "ForEach Carlist"
-        $CardList = $CardList + $Card
-        $CardList = $CardList + $Card
+    #Step through each node after the last
+    for ($i = 2; $i -le $Nodes; $i++) {
+        Add-DiceComboNode -nodeNum $i
+        Write-Host "AC Count = $($global:aryCombos.Count)"
+    }
+}
+    
+    
+######################################################################
+## Add-DiceComboNode
+## Adds nodes to the All combos table for for the Create-DiceComboTable
+## function.
+######################################################################
+
+    function Add-DiceComboNode {
+        param(
+            [int]$nodeNum
+        )
+
+        #Create a temporary Array        
+        #$aryCombosTemp = New-Object System.Collections.ArrayList
+        #Cleare Temp Array
+        $global:aryCombosTemp = @()
         
-        write $CardList
+        Write-Host "Add Node $nodeNum"
+
+        #step through each entry and add a new possibility for each node
+        foreach($entry in $global:aryCombos){
+            foreach($value in $global:aryValues){
+                $TempEntry = $entry + $value + $delimiter
+                $global:aryCombosTemp += $TempEntry
+            }
+        }
+        #$aryCombosTemp
+        Write-Host "ACT Count = $($global:aryCombosTemp.Count)"
+        $global:aryCombos = $global:aryCombosTemp
     }
+
     
 
 
-    
+######################################################################
+## Count-DiceCombos
+## Get data on Dice Combos
+######################################################################
+
+function Count-DiceCombos {
+
+    $intTotalCombos
 
 
 
@@ -133,15 +149,35 @@ function PopulateResults2{
 
 
 
-
-
-function PopulateResults{
-    $freshDeck = 0,1,1,2,2,3,3,14      #array represening a fresh deck of cards
     
-    PopulateResults2 -Att -DrawSize 1 -CardList $freshDeck
+######################################################################
+## Main
+######################################################################
 
-    Write-Output "Results"
-    write-output $attResults
+#Process based on system
+
+if ($system -eq 'xw') {
+    #All possible values a node can have (e.g. heads and tails, etc...).
+    $global:aryValues = @("*","H","H","H","f","f","-","-")
+
+    #Create the table of all possible combinations
+    Create-DiceComboTable -Nodes $nodes
+
+    #test Output
+    Write-Host $aryCombos.Count
+    $aryCombos
+
+    #test
+    $url = "http://sp13/sites/1/2/3"
+    $charCount = ($url.ToCharArray() | Where-Object {$_ -eq '/'} | Measure-Object).Count
+    Write-Host "CC: $charCount"
+
+
+
+
 }
-    
+
+
+
+
 

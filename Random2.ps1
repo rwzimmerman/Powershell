@@ -4,10 +4,9 @@
 
 
 
-
 <#
     .SYNOPSIS
-        Determines Malifaux averages
+        averages
 
     .DESCRIPTION
 
@@ -35,120 +34,181 @@
 
 
 
-# ============================================================================================== 
-# Wrapper Setup
-# Load libraries
-# ============================================================================================== 
-param (
-    
-        [int]$AttStat,             #The value of the attacker's relevant stat 
-        [int]$AttCards,            #The number of cards the attacker is flipping 
-        [switch]$AttPos,           #True of the attacker is on a positive twist defaults to true
-        [switch]$AttNeg,           #True of the attacker is on a negative twist defaults to false
-        [int]$DefStat,             #The value of the defender's relevant stat 
-        [int]$DefCards,            #The number of cards the defender is flipping 
-        [switch]$DefPos,           #True of the defender is on a positive twist defaults to true
-        [switch]$DefNeg            #True of the defender is on a negative twist defaults to false
-    )
+######################################################################
+## Variables
+######################################################################
+
+#how many nodes (coins flipped, dice rolled, etc...)
+$nodes = 4
+
+#the system being used
+$system = 'xw'
+
+#Table of all possible outcomes.
+$global:aryCombos = @()
+
+#Temporayr Table used to create the table of all possible outcomes
+$global:aryCombosTemp = @()
 
 
 
-# ============================================================================================== 
-# Determine if there is positive or negative twist.
-if ($AttNeg) {
-    $AttPos = $false
-} else {
-    $AttPos = $true
-}
-
-if ($DefNeg) {
-    $DefPos = $false
-} else {
-    $DefPos = $true
-}
-
-# ============================================================================================== 
-# Card Draw Functions
-# ============================================================================================== 
-
-#returns a set of number representing cards drawn from a fresh deck.
-#an array of ints will be returned, each int will be unique
-# https://blogs.technet.microsoft.com/heyscriptingguy/2011/05/27/use-a-simple-powershell-technique-to-create-random-numbers/
-function Draw-CardsAsInts_OLD ([int] $HandSize = 1) {
-    $cards = Get-Random -Count $HandSize -InputObject (0..53)
-    return $cards
-}
 
 
-#takes an int and returns a card value 0 through 14 (no suit is returned)
-#returns value /4 rounded up
-#https://msdn.microsoft.com/en-us/library/zx4t0t48%28v=vs.110%29.aspx
-function Translate-IntToCard_OLD {
-    Param (
-        [Parameter(Mandatory=$true)]
-        [int] $IntValue
-    ) 
-
-    #devides the vlue by 4 and gives the smallest integral value that is greater than or equal to the result.
-    [int]$CardValue = [int][Math]::Ceiling($IntValue/4)
-    write-output $CardValue
-}
 
 
-#generates x random unique cards from a fresh deck, where x is the input number of cards to draw.
-#Cards are returned in decimal format (e.g. 1.25, 4.75, 5.00)  where the whole number represents
-#the value of the card and the decimal represends the suit.
-function Draw-Cards {
+
+
+
+
+
+######################################################################
+## Create-DiceComboTable
+## Creates a table containing all the possible outcomes
+## This routine is best suited for dice and similar models, 
+## where each node value can occure on each die.  It is not suited
+## for card draw modles where a single instance of a card can only
+## be drawn once.
+######################################################################
+
+
+function Create-DiceComboTable {
     param(
-        [int] $HandSize = 1,
         [Parameter(Mandatory=$true)]
-        $valueArray,
-        [Parameter(Mandatory=$true)]
-        $suitArray
+        [int]$Nodes                      #the number of items dice rolled, cards drawn, etc.
     )
+    
+    #Seed the possible combo array by creating an entry for each possible outcome
+    #for a single node
+    foreach($value in $global:aryValues){
+        $global:aryCombos += $value
+    }
 
-    $cards = Get-Random -Count $HandSize -InputObject (0..53)
 
-    for ($i = 0; $i -le $cards.Count -1; $i++) {
+    #Step through each node after the last
+    for ($i = 2; $i -le $Nodes; $i++) {
+        Add-DiceComboNode -nodeNum $i
+        Write-Host "AC Count = $($global:aryCombos.Count)"
+    }
+}
+    
+    
+######################################################################
+## Add-DiceComboNode
+## Adds nodes to the All combos table for for the Create-DiceComboTable
+## function.
+######################################################################
+
+    function Add-DiceComboNode {
+        param(
+            [int]$nodeNum
+        )
+
+        #Create a temporary Array        
+        #$aryCombosTemp = New-Object System.Collections.ArrayList
+        #Cleare Temp Array
+        $global:aryCombosTemp = @()
         
-        
+        Write-Host "Add Node $nodeNum"
 
+        #step through each entry and add a new possibility for each node
+        foreach($entry in $global:aryCombos){
+            foreach($value in $global:aryValues){
+                
+                #Create a empty array for the new combo
+                $TempEntry = @()
+                #Add each element of the existing array to the new array
+                for ($j = 0; $j -le $entry.count -1; $j++) {
+                    $TempEntry += $entry[$j]
+                }
+                #Add the new value to the end of the new temp array.
+                #We now have the old combo entry array with the new entry added to the end
+                $TempEntry += $value 
 
-        $original = $cards[$i]
-        $value = [int][Math]::Ceiling($cards[$i]/4)
-        $suit = ($cards[$i]/4) - [int]($cards[$i]/4)
-        
-        if ($value -eq 0) {
-            $suit = "-"
-        } elseif ($value -eq 14) {
-            $suit = "*"
-        } elseif ($suit -eq 0) {
-            $suit = "R"
-        } elseif ($suit -eq 0.25) {
-            $suit = "C"
-        } elseif ($suit -eq -0.25) {
-            $suit = "M"
-        } elseif ($suit -eq -0.50) {
-            $suit = "T"
-        } elseif ($suit -eq 0.50) {
-            $suit = "T"
+                #Add the new combo array to the array of all possible combos.
+                $aryCombosTempCount = $global:aryCombosTemp.count
+                $global:aryCombosTemp += ""
+                $global:aryCombosTemp[$aryCombosTempCount] = $TempEntry
+            }
         }
+        #$aryCombosTemp
+        Write-Host "ACT Count = $($global:aryCombosTemp.Count)"
+        $global:aryCombos = $global:aryCombosTemp
+    }
+
+    
 
 
+######################################################################
+## Count-DiceCombos
+## Get data on Dice Combos
+######################################################################
+
+function Count-DiceCombos {
 
 
-        Write-Host "$original : $value / $suit  "
-        
+    write-host "Count"
 
 
+    foreach($Combo in $aryCombos) {
+        write-host "combo $Combo"
+        foreach($entry in $Combo) {
+            write-host $entry
+        }
 
     }
 
-    [int]$CardValue = [int][Math]::Ceiling($IntValue/4)
+
+
+
+    write-host "Total Combos: $($aryCombos.count)"
+
+
+
+
+}
+
+
+
+
+
+
+
+
+
+    
+######################################################################
+## Main
+######################################################################
+
+#Process based on system
+
+if ($system -eq 'xw') {
+    #All possible values a node can have (e.g. heads and tails, etc...).
+    #$global:aryValues = @("*","H","H","H","f","f","-","-")
+    $global:aryValues = @(1,2,3,4)
+    
+    #Create the table of all possible combinations
+    Create-DiceComboTable -Nodes $nodes
+
+
+
+    #test Output
+    Write-Host $aryCombos.Count
+    #$aryCombos
+
+    Count-DiceCombos
     
 
-    #return $cards
+    #test
+    #$url = "http://sp13/sites/1/2/3"
+    #$charCount = ($url.ToCharArray() | Where-Object {$_ -eq '/'} | Measure-Object).Count
+    #Write-Host "CC: $charCount"
+
+
+
+
 }
+
 
 
 
