@@ -39,7 +39,7 @@
 ######################################################################
 
 #how many nodes (coins flipped, dice rolled, etc...)
-$nodes = 4
+$nodes = 3
 
 #the system being used
 $system = 'xw'
@@ -143,31 +143,56 @@ function Create-DiceComboTable {
 ## Get data on Dice Combos
 ######################################################################
 
-function Count-DiceCombos {
+function Count-XWingComobos {
 
 
     write-host "Count"
 
+    $critCount = 0
+    $hitCount = 0
+    $evadeCount = 0
+    $focusCount = 0
+    $blankCount = 0
+    
 
+
+    #step through each entry in the combo
     foreach($Combo in $aryCombos) {
-        write-host "combo $Combo"
-        foreach($entry in $Combo) {
-            write-host $entry
-        }
+        write-host "combo $Combo" -ForegroundColor red
+        #write-host $entry
+        Count-OccurancesInEntry -lookfor 2 -combo $Combo -count $critCount
 
     }
 
-
-
-
     write-host "Total Combos: $($aryCombos.count)"
-
-
-
+    write-host " Crit Count:  $critCount"
+    write-host " Hit Count:   $hitCount"
+    write-host " Focus Count: $evadeCount"
+    write-host " Focus Count: $focusCount"
+    write-host " Blank Count: $blankCount"
+    
 
 }
 
 
+#counts the number of times a value appears in each entry.
+#and entry is a array of each reslut of a roll.
+function Count-OccurancesInEntry  {
+    param (
+        [int]$lookfor, 
+        [int[]]$combo,
+        [int]$count
+    )
+
+    
+
+    write-host "--------------- $lookfor" -ForegroundColor Green
+    foreach ($entry in $combo) {
+        write-host "entryvalue: $entry" -ForegroundColor Yellow
+    
+    }
+
+}
 
 
 
@@ -185,7 +210,15 @@ function Count-DiceCombos {
 if ($system -eq 'xw') {
     #All possible values a node can have (e.g. heads and tails, etc...).
     #$global:aryValues = @("*","H","H","H","f","f","-","-")
-    $global:aryValues = @(1,2,3,4)
+    $global:aryValues = @(0,1,2,2)
+    # 3 = Crit
+    # 2 = Hit
+    # 1 = Focus
+    # 0 = Blank
+    
+    # 2 = Evade
+    # 1 = Focus
+    # 0 = Blank
     
     #Create the table of all possible combinations
     Create-DiceComboTable -Nodes $nodes
@@ -196,7 +229,7 @@ if ($system -eq 'xw') {
     Write-Host $aryCombos.Count
     #$aryCombos
 
-    Count-DiceCombos
+    Count-XWingComobos
     
 
     #test
