@@ -144,12 +144,12 @@ function Count-XWingComobos {
 
     write-host "Count"
 
+    $count = 0
     $critCount = 0
     $hitCount = 0
     $evadeCount = 0
     $focusCount = 0
     $blankCount = 0
-    $totalCount = 0
     
     
 
@@ -158,19 +158,17 @@ function Count-XWingComobos {
     foreach($Combo in $aryCombos) {
         write-host "combo $Combo" -ForegroundColor red
         #write-host $entry
-        Count-OccurancesInEntry -lookfor $cCrit -combo $Combo -critCount ([ref]$critCount) -hitCount ([ref]$hitCount) -evadeCount ([ref]$evadeCount) -focusCount ([ref]$focusCount) -blankCount ([ref]$blankCount)
-        $totalCount = $totalCount +1
-
-        write-host "Total Combos: $totalCount"
-        write-host " Crit Count:  $critCount"
-        write-host " Hit Count:   $hitCount"
-        write-host " Evade Count: $evadeCount"
-        write-host " Focus Count: $focusCount"
-        write-host " Blank Count: $blankCount"
-    
-
+        Count-OccurancesInEntry -lookfor $xCrit -combo $Combo -count ([ref]$count) 
+        write-host $count -ForegroundColor Cyan
+        
     }
 
+    write-host "Total Combos: $($aryCombos.count)"
+    write-host $count
+    write-host " Hit Count:   $hitCount"
+    write-host " Focus Count: $evadeCount"
+    write-host " Focus Count: $focusCount"
+    write-host " Blank Count: $blankCount"
     
 
 }
@@ -182,34 +180,22 @@ function Count-OccurancesInEntry  {
     param (
         [int]$lookfor, 
         [int[]]$combo,
-        [ref]$critCount,
-        [ref]$hitCount,
-        [ref]$evadeCount,
-        [ref]$focusCount,
-        [ref]$blankCount
+        [ref]$count
         )
 
     
-    $critCount.value = 0
-    $hitCount.value = 0
-    $evadeCount.value = 0
-    $focusCount.value = 0
-    $blankCount.value = 0
-    
+    $count.value = 0
+
+    write-host "Lookfor: $lookfor  Count: $count" -ForegroundColor Green
     foreach ($entry in $combo) {
-        if($entry -eq $cCrit) {
-            $critCount.value = $critCount.value +1
-        }elseif ($entry -eq $cHit) {
-            $hitCount.value = $hitCount.value +1
-        }elseif ($entry -eq $cEvade) {
-            $evadeCount.value = $evadeCount.value +1
-        }elseif ($entry -eq $cFocus) {
-            $focusCount.value = $focusCount.value +1
-        }elseif ($entry -eq $cBlank) {
-            $blankCount.value = $blankCount.value +1
+        if($entry -eq $lookfor) {
+            #$count = $count +1
+            $count.value = $count.value +1
+            write-host $count.value -ForegroundColor Blue
         }
     
     }
+    Write-Host $count -ForegroundColor yellow
     
 }
 
@@ -230,12 +216,23 @@ if ($system -eq 'xw') {
     #All possible values a node can have (e.g. heads and tails, etc...).
     #$global:aryValues = @("*","H","H","H","f","f","-","-")
 
-    Set-Variable cCrit  -option Constant -value 3 -Scope Global
-    Set-Variable cHit   -option Constant -value 2 -Scope Global
-    Set-Variable cEvade -option Constant -value 2 -Scope Global
-    Set-Variable cFocus -option Constant -value 1 -Scope Global
-    Set-Variable cBlank -option Constant -value 0 -Scope Global
-    $global:aryValues = @($cBlank,$cHit,$cCrit)
+    Set-Variable xCrit  -option Constant -value 3 -Scope Global
+    Set-Variable xHit   -option Constant -value 2 -Scope Global
+    Set-Variable xEvade -option Constant -value 2 -Scope Global
+    Set-Variable xFocus -option Constant -value 1 -Scope Global
+    Set-Variable xBlank -option Constant -value 0 -Scope Global
+    
+    
+
+    $global:aryValues = @(0,1,$xCrit)
+    # 3 = Crit
+    # 2 = Hit
+    # 1 = Focus
+    # 0 = Blank
+    
+    # 2 = Evade
+    # 1 = Focus
+    # 0 = Blank
     
     #Create the table of all possible combinations
     Create-DiceComboTable -Nodes $nodes
@@ -244,9 +241,16 @@ if ($system -eq 'xw') {
 
     #test Output
     Write-Host $aryCombos.Count
+    #$aryCombos
 
     Count-XWingComobos
     
+
+    #test
+    #$url = "http://sp13/sites/1/2/3"
+    #$charCount = ($url.ToCharArray() | Where-Object {$_ -eq '/'} | Measure-Object).Count
+    #Write-Host "CC: $charCount"
+
 
 
 
@@ -254,3 +258,19 @@ if ($system -eq 'xw') {
 
 
 
+
+
+
+  function fn
+  {
+  param
+  (
+  [ref]$arg1,
+  [ref]$arg2,
+  $arg3
+  )
+  
+  $arg1.Value = 1
+  $arg2.Value = "overwrite"
+  $arg3.key = "overwrite hash value" 
+  }
