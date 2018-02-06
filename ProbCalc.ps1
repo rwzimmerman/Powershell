@@ -6,7 +6,7 @@
 
 <#
     .SYNOPSIS
-        averages
+        Calculates the probabiliites of restults for die rolls and card flips.
 
     .DESCRIPTION
 
@@ -16,9 +16,8 @@
     
     
     .EXAMPLE
-        .\WinUpdateToolsV2.ps1 RestartComputer "robz010"
-        Restarts a single machine named robz010
-
+        
+    
 
     .INPUTS
 
@@ -39,10 +38,10 @@
 ######################################################################
 
 #how many nodes (coins flipped, dice rolled, etc...)
-$nodes =3
+$nodes = 3
 
 #the system being used
-$system = 'xw'
+$system = 'xWing'
 
 #Table of all possible outcomes.
 $global:aryCombos = @()
@@ -83,7 +82,6 @@ function Create-DiceComboTable {
     #Step through each node after the last
     for ($i = 2; $i -le $Nodes; $i++) {
         Add-DiceComboNode -nodeNum $i
-        Write-Host "AC Count = $($global:aryCombos.Count)"
     }
 }
     
@@ -104,8 +102,6 @@ function Create-DiceComboTable {
         #Cleare Temp Array
         $global:aryCombosTemp = @()
         
-        Write-Host "Add Node $nodeNum"
-
         #step through each entry and add a new possibility for each node
         foreach($entry in $global:aryCombos){
             foreach($value in $global:aryValues){
@@ -127,7 +123,6 @@ function Create-DiceComboTable {
             }
         }
         #$aryCombosTemp
-        Write-Host "ACT Count = $($global:aryCombosTemp.Count)"
         $global:aryCombos = $global:aryCombosTemp
     }
 
@@ -135,14 +130,14 @@ function Create-DiceComboTable {
 
 
 ######################################################################
-## Count-DiceCombos
-## Get data on Dice Combos
+## Count-XWingResults
+## Counts counts how many times each result is present in the table of all
+## possible restuls and displays.
 ######################################################################
 
-function Count-XWingComobos {
+function Count-XWingResults {
 
 
-    write-host "Count"
 
     $nodeCritCount = 0
     $nodeHitCount = 0
@@ -302,45 +297,16 @@ function Count-XWingComobos {
     
     
     
-        write-host "combo $Combo" -ForegroundColor red
-        write-host " Num: $totalCount / C: $nodeCritCount / H: $nodeHitCount / E: $nodeEvadeCount / F: $nodeFocusCount / B: $nodeBlankCount"
+        write-host "Event $totalCount - Nodes: $Combo  Results:  C: $nodeCritCount / H: $nodeHitCount / E: $nodeEvadeCount / F: $nodeFocusCount / B: $nodeBlankCount" 
     }
 
     write-host ""
-    write-host " Crits   1: $event1CritCount ($($event1CritCount/$totalCount))" / `
-     " 2: $event2CritCount ($($event2CritCount/$totalCount))" / `
-     " 3: $event3CritCount ($($event3CritCount/$totalCount))" / `
-     " 4: $event4CritCount ($($event4CritCount/$totalCount))" / `
-     " 5: $event5CritCount ($($event5CritCount/$totalCount))"
-    
-    
-    write-host " Hits    1: $event1HitCount ($($event1HitCount/$totalCount))" / `
-     " 2: $event2HitCount ($($event2HitCount/$totalCount))" / `
-     " 3: $event3HitCount ($($event3HitCount/$totalCount))" / `
-     " 4: $event4HitCount ($($event4HitCount/$totalCount))" / `
-     " 5: $event5HitCount ($($event5HitCount/$totalCount))"
-    
-    write-host " Evades  1: $event1EvadeCount ($($event1EvadeCount/$totalCount))" / `
-     " 2: $event2EvadeCount ($($event2EvadeCount/$totalCount))" / `
-     " 3: $event3EvadeCount ($($event3EvadeCount/$totalCount))" / `
-     " 4: $event4EvadeCount ($($event4EvadeCount/$totalCount))" / `
-     " 5: $event5EvadeCount ($($event5EvadeCount/$totalCount))"
-    
-    write-host " Focuses 1: $event1FocusCount ($($event1FocusCount/$totalCount))" / `
-     " 2: $event2FocusCount ($($event2FocusCount/$totalCount))" / `
-     " 3: $event3FocusCount ($($event3FocusCount/$totalCount))" / `
-     " 4: $event4FocusCount ($($event4FocusCount/$totalCount))" / `
-     " 5: $event5FocusCount ($($event5FocusCount/$totalCount))"
-    
-    write-host " Blanks  1: $event1BlankCount ($($event1BlankCount/$totalCount))" / `
-     " 2: $event2BlankCount ($($event2BlankCount/$totalCount))" / `
-     " 3: $event3BlankCount ($($event3BlankCount/$totalCount))" / `
-     " 4: $event4BlankCount ($($event4BlankCount/$totalCount))" / `
-     " 5: $event5BlankCount ($($event5BlankCount/$totalCount))"
-    
-
-    
-
+    Write-host ("{0,10}  {1,24}" -f "Total:","$totalCount") 
+    Write-host ("{0,10}  {1,24}  {2,24}  {3,24}  {4,24}  {5,24}" -f "Crits:",  "1: $event1CritCount ($($event1CritCount/$totalCount))",  "2: $event2CritCount ($($event2CritCount/$totalCount))",  "3: $event3CritCount ($($event3CritCount/$totalCount))",  "4: $event4CritCount ($($event4CritCount/$totalCount))",  "5: $event5CritCount ($($event5CritCount/$totalCount))") 
+    Write-host ("{0,10}  {1,24}  {2,24}  {3,24}  {4,24}  {5,24}" -f "Hits:",   "1: $event1HitCount ($($event1HitCount/$totalCount))",    "2: $event2HitCount ($($event2HitCount/$totalCount))",    "3: $event3HitCount ($($event3HitCount/$totalCount))",    "4: $event4HitCount ($($event4HitCount/$totalCount))",    "5: $event5HitCount ($($event5HitCount/$totalCount))") 
+    Write-host ("{0,10}  {1,24}  {2,24}  {3,24}  {4,24}  {5,24}" -f "Focuses:","1: $event1FocusCount ($($event1FocusCount/$totalCount))","2: $event2FocusCount ($($event2FocusCount/$totalCount))","3: $event3FocusCount ($($event3FocusCount/$totalCount))","4: $event4FocusCount ($($event4FocusCount/$totalCount))","5: $event5FocusCount ($($event5FocusCount/$totalCount))") 
+    Write-host ("{0,10}  {1,24}  {2,24}  {3,24}  {4,24}  {5,24}" -f "Evades:", "1: $event1EvadeCount ($($event1EvadeCount/$totalCount))","2: $event2EvadeCount ($($event2EvadeCount/$totalCount))","3: $event3EvadeCount ($($event3EvadeCount/$totalCount))","4: $event4EvadeCount ($($event4EvadeCount/$totalCount))","5: $event5EvadeCount ($($event5EvadeCount/$totalCount))") 
+    Write-host ("{0,10}  {1,24}  {2,24}  {3,24}  {4,24}  {5,24}" -f "Blanks:", "1: $event1BlankCount ($($event1BlankCount/$totalCount))","2: $event2BlankCount ($($event2BlankCount/$totalCount))","3: $event3BlankCount ($($event3BlankCount/$totalCount))","4: $event4BlankCount ($($event4BlankCount/$totalCount))","5: $event5BlankCount ($($event5BlankCount/$totalCount))") 
 }
 
 #https://weblogs.asp.net/soever/powershell-return-values-from-a-function-through-reference-parameters
@@ -394,26 +360,23 @@ function Count-OccurancesInEntry  {
 
 #Process based on system
 
-if ($system -eq 'xw') {
-    #All possible values a node can have (e.g. heads and tails, etc...).
-    #$global:aryValues = @("*","H","H","H","f","f","-","-")
+if ($system -eq 'xWing') {
 
+    # Variable representing the die faces in xWing (Crit, Hit, Evade, Focus and Blank)
     Set-Variable cCrit  -option Constant -value 3 -Scope Global
     Set-Variable cHit   -option Constant -value 2 -Scope Global
     Set-Variable cEvade -option Constant -value 4 -Scope Global
     Set-Variable cFocus -option Constant -value 1 -Scope Global
     Set-Variable cBlank -option Constant -value 0 -Scope Global
+
+    # Array representing one die (aka node) with one entry per face.
     $global:aryValues = @($cBlank,$cBlank,$cFocus,$cFocus,$cHit,$cHit,$cHit,$cCrit)
     
-    #Create the table of all possible combinations
+    #Create the table of all possible results
     Create-DiceComboTable -Nodes $nodes
 
-
-
-    #test Output
-    Write-Host $aryCombos.Count
-
-    Count-XWingComobos
+    #Count the results of the table containing all possible results
+    Count-XWingResults
     
 
 
