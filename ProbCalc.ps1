@@ -39,7 +39,7 @@
 ######################################################################
 
 #how many nodes (coins flipped, dice rolled, etc...)
-$nodes = 3
+$nodes =3
 
 #the system being used
 $system = 'xw'
@@ -144,32 +144,200 @@ function Count-XWingComobos {
 
     write-host "Count"
 
-    $critCount = 0
-    $hitCount = 0
-    $evadeCount = 0
-    $focusCount = 0
-    $blankCount = 0
+    $nodeCritCount = 0
+    $nodeHitCount = 0
+    $nodeEvadeCount = 0
+    $nodeFocusCount = 0
+    $nodeBlankCount = 0
     $totalCount = 0
     
+    $event1CritCount = 0
+    $event2CritCount = 0
+    $event3CritCount = 0
+    $event4CritCount = 0
+    $event5CritCount = 0
+    
+    $event1HitCount = 0
+    $event2HitCount = 0
+    $event3HitCount = 0
+    $event4HitCount = 0
+    $event5HitCount = 0
+    
+    $event1EvadeCount = 0
+    $event2EvadeCount = 0
+    $event3EvadeCount = 0
+    $event4EvadeCount = 0
+    $event5EvadeCount = 0
+    
+    $event1FocusCount = 0
+    $event2FocusCount = 0
+    $event3FocusCount = 0
+    $event4FocusCount = 0
+    $event5FocusCount = 0
+    
+    $event1BlankCount = 0
+    $event2BlankCount = 0
+    $event3BlankCount = 0
+    $event4BlankCount = 0
+    $event5BlankCount = 0
     
 
 
     #step through each entry in the combo
     foreach($Combo in $aryCombos) {
-        write-host "combo $Combo" -ForegroundColor red
-        #write-host $entry
-        Count-OccurancesInEntry -lookfor $cCrit -combo $Combo -critCount ([ref]$critCount) -hitCount ([ref]$hitCount) -evadeCount ([ref]$evadeCount) -focusCount ([ref]$focusCount) -blankCount ([ref]$blankCount)
+        Count-OccurancesInEntry -lookfor $cCrit -combo $Combo -nodeCritCount ([ref]$nodeCritCount) -nodeHitCount ([ref]$nodeHitCount) -nodeEvadeCount ([ref]$nodeEvadeCount) -nodeFocusCount ([ref]$nodeFocusCount) -nodeBlankCount ([ref]$nodeBlankCount)
         $totalCount = $totalCount +1
 
-        write-host "Total Combos: $totalCount"
-        write-host " Crit Count:  $critCount"
-        write-host " Hit Count:   $hitCount"
-        write-host " Evade Count: $evadeCount"
-        write-host " Focus Count: $focusCount"
-        write-host " Blank Count: $blankCount"
+        if ($nodeCritCount -eq 1) {
+            $event1CritCount = $event1CritCount +1
+        } elseif ($nodeCritCount -eq 2) {
+            $event1CritCount = $event1CritCount +1
+            $event2CritCount = $event2CritCount +1
+        } elseif ($nodeCritCount -eq 3) {
+            $event1CritCount = $event1CritCount +1
+            $event2CritCount = $event2CritCount +1
+            $event3CritCount = $event3CritCount +1
+        } elseif ($nodeCritCount -eq 4) {
+            $event1CritCount = $event1CritCount +1
+            $event2CritCount = $event2CritCount +1
+            $event3CritCount = $event3CritCount +1
+            $event4CritCount = $event4CritCount +1
+        } elseif ($nodeCritCount -eq 5) {
+            $event1CritCount = $event1CritCount +1
+            $event2CritCount = $event2CritCount +1
+            $event3CritCount = $event3CritCount +1
+            $event4CritCount = $event4CritCount +1
+            $event5CritCount = $event5CritCount +1
+        }
     
-
+        if ($nodeHitCount -eq 1) {
+            $event1HitCount = $event1HitCount +1
+        } elseif ($nodeHitCount -eq 2) {
+            $event1HitCount = $event1HitCount +1
+            $event2HitCount = $event2HitCount +1
+        } elseif ($nodeHitCount -eq 3) {
+            $event1HitCount = $event1HitCount +1
+            $event2HitCount = $event2HitCount +1
+            $event3HitCount = $event3HitCount +1
+        } elseif ($nodeHitCount -eq 4) {
+            $event1HitCount = $event1HitCount +1
+            $event2HitCount = $event2HitCount +1
+            $event3HitCount = $event3HitCount +1
+            $event4HitCount = $event4HitCount +1
+        } elseif ($nodeHitCount -eq 5) {
+            $event1HitCount = $event1HitCount +1
+            $event2HitCount = $event2HitCount +1
+            $event3HitCount = $event3HitCount +1
+            $event4HitCount = $event4HitCount +1
+            $event5HitCount = $event5HitCount +1
+        }
+    
+        if ($nodeEvadeCount -eq 1) {
+            $event1EvadeCount = $event1EvadeCount +1
+        } elseif ($nodeEvadeCount -eq 2) {
+            $event1EvadeCount = $event1EvadeCount +1
+            $event2EvadeCount = $event2EvadeCount +1
+        } elseif ($nodeEvadeCount -eq 3) {
+            $event1EvadeCount = $event1EvadeCount +1
+            $event2EvadeCount = $event2EvadeCount +1
+            $event3EvadeCount = $event3EvadeCount +1
+        } elseif ($nodeEvadeCount -eq 4) {
+            $event1EvadeCount = $event1EvadeCount +1
+            $event2EvadeCount = $event2EvadeCount +1
+            $event3EvadeCount = $event3EvadeCount +1
+            $event4EvadeCount = $event4EvadeCount +1
+        } elseif ($nodeEvadeCount -eq 5) {
+            $event1EvadeCount = $event1EvadeCount +1
+            $event2EvadeCount = $event2EvadeCount +1
+            $event3EvadeCount = $event3EvadeCount +1
+            $event4EvadeCount = $event4EvadeCount +1
+            $event5EvadeCount = $event5EvadeCount +1
+        }
+    
+    
+        if ($nodeFocusCount -eq 1) {
+            $event1FocusCount = $event1FocusCount +1
+        } elseif ($nodeFocusCount -eq 2) {
+            $event1FocusCount = $event1FocusCount +1
+            $event2FocusCount = $event2FocusCount +1
+        } elseif ($nodeFocusCount -eq 3) {
+            $event1FocusCount = $event1FocusCount +1
+            $event2FocusCount = $event2FocusCount +1
+            $event3FocusCount = $event3FocusCount +1
+        } elseif ($nodeFocusCount -eq 4) {
+            $event1FocusCount = $event1FocusCount +1
+            $event2FocusCount = $event2FocusCount +1
+            $event3FocusCount = $event3FocusCount +1
+            $event4FocusCount = $event4FocusCount +1
+        } elseif ($nodeFocusCount -eq 5) {
+            $event1FocusCount = $event1FocusCount +1
+            $event2FocusCount = $event2FocusCount +1
+            $event3FocusCount = $event3FocusCount +1
+            $event4FocusCount = $event4FocusCount +1
+            $event5FocusCount = $event5FocusCount +1
+        }
+    
+    
+        if ($nodeBlankCount -eq 1) {
+            $event1BlankCount = $event1BlankCount +1
+        } elseif ($nodeBlankCount -eq 2) {
+            $event1BlankCount = $event1BlankCount +1
+            $event2BlankCount = $event2BlankCount +1
+        } elseif ($nodeBlankCount -eq 3) {
+            $event1BlankCount = $event1BlankCount +1
+            $event2BlankCount = $event2BlankCount +1
+            $event3BlankCount = $event3BlankCount +1
+        } elseif ($nodeBlankCount -eq 4) {
+            $event1BlankCount = $event1BlankCount +1
+            $event2BlankCount = $event2BlankCount +1
+            $event3BlankCount = $event3BlankCount +1
+            $event4BlankCount = $event4BlankCount +1
+        } elseif ($nodeBlankCount -eq 5) {
+            $event1BlankCount = $event1BlankCount +1
+            $event2BlankCount = $event2BlankCount +1
+            $event3BlankCount = $event3BlankCount +1
+            $event4BlankCount = $event4BlankCount +1
+            $event5BlankCount = $event5BlankCount +1
+        }
+    
+    
+    
+        write-host "combo $Combo" -ForegroundColor red
+        write-host " Num: $totalCount / C: $nodeCritCount / H: $nodeHitCount / E: $nodeEvadeCount / F: $nodeFocusCount / B: $nodeBlankCount"
     }
+
+    write-host ""
+    write-host " Crits   1: $event1CritCount ($($event1CritCount/$totalCount))" / `
+     " 2: $event2CritCount ($($event2CritCount/$totalCount))" / `
+     " 3: $event3CritCount ($($event3CritCount/$totalCount))" / `
+     " 4: $event4CritCount ($($event4CritCount/$totalCount))" / `
+     " 5: $event5CritCount ($($event5CritCount/$totalCount))"
+    
+    
+    write-host " Hits    1: $event1HitCount ($($event1HitCount/$totalCount))" / `
+     " 2: $event2HitCount ($($event2HitCount/$totalCount))" / `
+     " 3: $event3HitCount ($($event3HitCount/$totalCount))" / `
+     " 4: $event4HitCount ($($event4HitCount/$totalCount))" / `
+     " 5: $event5HitCount ($($event5HitCount/$totalCount))"
+    
+    write-host " Evades  1: $event1EvadeCount ($($event1EvadeCount/$totalCount))" / `
+     " 2: $event2EvadeCount ($($event2EvadeCount/$totalCount))" / `
+     " 3: $event3EvadeCount ($($event3EvadeCount/$totalCount))" / `
+     " 4: $event4EvadeCount ($($event4EvadeCount/$totalCount))" / `
+     " 5: $event5EvadeCount ($($event5EvadeCount/$totalCount))"
+    
+    write-host " Focuses 1: $event1FocusCount ($($event1FocusCount/$totalCount))" / `
+     " 2: $event2FocusCount ($($event2FocusCount/$totalCount))" / `
+     " 3: $event3FocusCount ($($event3FocusCount/$totalCount))" / `
+     " 4: $event4FocusCount ($($event4FocusCount/$totalCount))" / `
+     " 5: $event5FocusCount ($($event5FocusCount/$totalCount))"
+    
+    write-host " Blanks  1: $event1BlankCount ($($event1BlankCount/$totalCount))" / `
+     " 2: $event2BlankCount ($($event2BlankCount/$totalCount))" / `
+     " 3: $event3BlankCount ($($event3BlankCount/$totalCount))" / `
+     " 4: $event4BlankCount ($($event4BlankCount/$totalCount))" / `
+     " 5: $event5BlankCount ($($event5BlankCount/$totalCount))"
+    
 
     
 
@@ -182,31 +350,31 @@ function Count-OccurancesInEntry  {
     param (
         [int]$lookfor, 
         [int[]]$combo,
-        [ref]$critCount,
-        [ref]$hitCount,
-        [ref]$evadeCount,
-        [ref]$focusCount,
-        [ref]$blankCount
+        [ref]$nodeCritCount,
+        [ref]$nodeHitCount,
+        [ref]$nodeEvadeCount,
+        [ref]$nodeFocusCount,
+        [ref]$nodeBlankCount
         )
 
     
-    $critCount.value = 0
-    $hitCount.value = 0
-    $evadeCount.value = 0
-    $focusCount.value = 0
-    $blankCount.value = 0
+    $nodeCritCount.value = 0
+    $nodeHitCount.value = 0
+    $nodeEvadeCount.value = 0
+    $nodeFocusCount.value = 0
+    $nodeBlankCount.value = 0
     
     foreach ($entry in $combo) {
         if($entry -eq $cCrit) {
-            $critCount.value = $critCount.value +1
+            $nodeCritCount.value = $nodeCritCount.value +1
         }elseif ($entry -eq $cHit) {
-            $hitCount.value = $hitCount.value +1
+            $nodeHitCount.value = $nodeHitCount.value +1
         }elseif ($entry -eq $cEvade) {
-            $evadeCount.value = $evadeCount.value +1
+            $nodeEvadeCount.value = $nodeEvadeCount.value +1
         }elseif ($entry -eq $cFocus) {
-            $focusCount.value = $focusCount.value +1
+            $nodeFocusCount.value = $nodeFocusCount.value +1
         }elseif ($entry -eq $cBlank) {
-            $blankCount.value = $blankCount.value +1
+            $nodeBlankCount.value = $nodeBlankCount.value +1
         }
     
     }
@@ -232,10 +400,10 @@ if ($system -eq 'xw') {
 
     Set-Variable cCrit  -option Constant -value 3 -Scope Global
     Set-Variable cHit   -option Constant -value 2 -Scope Global
-    Set-Variable cEvade -option Constant -value 2 -Scope Global
+    Set-Variable cEvade -option Constant -value 4 -Scope Global
     Set-Variable cFocus -option Constant -value 1 -Scope Global
     Set-Variable cBlank -option Constant -value 0 -Scope Global
-    $global:aryValues = @($cBlank,$cHit,$cCrit)
+    $global:aryValues = @($cBlank,$cBlank,$cFocus,$cFocus,$cHit,$cHit,$cHit,$cCrit)
     
     #Create the table of all possible combinations
     Create-DiceComboTable -Nodes $nodes
