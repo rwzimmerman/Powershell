@@ -47,22 +47,16 @@
 ######################################################################
 
 #how many nodes (coins flipped, dice rolled, etc...)
-$nodes = 4
+$nodes = 2
 
 #the system being used
 $system = 'xWing'
 
-#An array of every possible event.
-$global:aryEvents = @()
 
-#Temporar array used to create the array of every possible event.
-$global:aryEventsTemp = @()
-
-
-$global:aryFaces = @()
-
-#An summarizing the restuls of each possible event (e.g. how many events have three 6's)
-$global:aryResults = @()
+$global:aryFaces = @()               #an array of each face of a node
+$global:aryEvents = @()              #An array of every possible event.
+$global:aryEventsTemp = @()          #Temporar array used to create the array of every possible event.
+$global:aryResults = @()             #An summarizing the restuls of each possible event (e.g. how many events have three 6's)
 
 $showDebug = $false
 $showDebug = $true
@@ -426,6 +420,9 @@ function Create-RestultsTable{
 }
 
 
+######################################################################
+## Unused
+######################################################################
 function UNUSED_Create-UniqueFacesTable {
 
     foreach ($face in $global:aryFaces) {
@@ -449,7 +446,64 @@ function UNUSED_Create-UniqueFacesTable {
 }
 
 
-    
+######################################################################
+## Count Results
+######################################################################
+
+function  Count-Results {
+
+    $eventCount = 0
+
+    #create a table to store how many times each result occurs in a given instance
+    $aryResultCounter = @()
+    foreach ($result in $global:aryResults) {
+        $objResult = New-Object -TypeName PSObject
+        Add-Member -InputObject $objResult -MemberType 'NoteProperty' -Name 'Result' -Value $result.Result
+        Add-Member -InputObject $objResult -MemberType 'NoteProperty' -Name 'Count' -Value 0
+        $aryResultCounter += $objResult
+    }
+
+    #DEBUG
+    foreach ($test in $aryResultCounter) {
+        write-host $test -ForegroundColor Yellow
+    }
+
+
+    #step through each result
+    foreach ($event in $global:aryEvents) {
+        #Reset the counter
+        foreach($restultCount in $aryResultCounter ) {
+            $restultCount.Count = 0
+        }
+
+
+        #Look the vlaue of each node in the array
+        $event.psobject.properties | ForEach-Object {
+            write-host "TROUT" -ForegroundColor red
+            write-host $_.value
+        }
+
+
+
+
+        #DEBUG DISPLAY
+        write-host $event -ForegroundColor Blue
+        foreach($restultCount in $aryResultCounter ) {
+            write-host $restultCount
+        }
+
+    }
+
+
+    write-host "Event Count: $eventCount" -ForegroundColor Green
+
+}
+
+
+
+
+
+
 ######################################################################
 ## Main
 ######################################################################
@@ -467,6 +521,8 @@ if ($system -eq 'xWing') {
 
     #Create the table to store all the results
     Create-RestultsTable
+
+    Count-Results
     
     
 
