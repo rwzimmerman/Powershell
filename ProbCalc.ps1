@@ -47,18 +47,19 @@
 ######################################################################
 
 #how many nodes (coins flipped, dice rolled, etc...)
-$nodes = 3
+$nodes = 5
 
 #the system being used
 $system = 'xWing'
 
-#Table of all possible outcomes.
-$global:aryCombos = @()
+#An array of every possible event.
+$global:aryEvents = @()
 
-#Temporayr Table used to create the table of all possible outcomes
-$global:aryCombosTemp = @()
+#Temporar array used to create the array of every possible event.
+$global:aryEventsTemp = @()
 
-
+#An summarizing the restuls of each possible event (e.g. how many events have three 6's)
+$global:aryResults = @()
 
 
 
@@ -84,7 +85,9 @@ function Create-DiceComboTable {
     #Seed the possible combo array by creating an entry for each possible outcome
     #for a single node
     foreach($value in $global:aryValues){
-        $global:aryCombos += $value
+        $objEvent = New-Object -TypeName PSObject
+        Add-Member -InputObject $objEvent -MemberType 'NoteProperty' -Name 'Node1' -Value $value
+        $global:aryEvents += $objEvent
     }
 
 
@@ -97,8 +100,16 @@ function Create-DiceComboTable {
     
 ######################################################################
 ## Add-DiceComboNode
-## Adds nodes to the All combos table for for the Create-DiceComboTable
-## function.
+## Steps through each existing event and adds an entry for each possible
+## value of the current node.
+## Example if the current table is coin flips and looks like:
+## Heads
+## Tails
+## after this function the table will look like
+## Heads,Heads
+## Heads,Tails
+## Tails,Heads
+## Tails,Tails
 ######################################################################
 
     function Add-DiceComboNode {
@@ -106,33 +117,32 @@ function Create-DiceComboTable {
             [int]$nodeNum
         )
 
-        #Create a temporary Array        
-        #$aryCombosTemp = New-Object System.Collections.ArrayList
-        #Cleare Temp Array
-        $global:aryCombosTemp = @()
+        write-host "Node Number: $nodenum " -ForegroundColor cyan
+
+        #Create an empty array to hold the new events.
+        $global:aryEventsTemp = @()
         
-        #step through each entry and add a new possibility for each node
-        foreach($entry in $global:aryCombos){
+        #step through each event
+        foreach($event in $global:aryEvents){
+            #step through each possible outcome of the current node
             foreach($value in $global:aryValues){
                 
-                #Create a empty array for the new combo
-                $TempEntry = @()
-                #Add each element of the existing array to the new array
-                for ($j = 0; $j -le $entry.count -1; $j++) {
-                    $TempEntry += $entry[$j]
+                #create a copy of the current event
+                $TempEntry = New-Object -TypeName PSObject
+                $event.psobject.properties | ForEach-Object {
+                    $TempEntry | Add-Member -MemberType $_.MemberType -Name $_.Name -Value $_.Value
                 }
-                #Add the new value to the end of the new temp array.
-                #We now have the old combo entry array with the new entry added to the end
-                $TempEntry += $value 
+                
+                #add outcome for this itteration of the node to the event
+                $name = "Node" + $nodeNum
+                Add-Member -InputObject $TempEntry -MemberType 'NoteProperty' -Name $name -Value $value
 
-                #Add the new combo array to the array of all possible combos.
-                $aryCombosTempCount = $global:aryCombosTemp.count
-                $global:aryCombosTemp += ""
-                $global:aryCombosTemp[$aryCombosTempCount] = $TempEntry
+                #Add the new event to the new event table
+                $global:aryEventsTemp += $TempEntry
             }
         }
-        #$aryCombosTemp
-        $global:aryCombos = $global:aryCombosTemp
+        #replace the old event table with the new event table
+        $global:aryEvents = $global:aryEventsTemp
     }
 
     
@@ -188,7 +198,7 @@ function Count-XWingResults {
 
 
     #step through each entry in the combo
-    foreach($Combo in $aryCombos) {
+    foreach($Combo in $aryEvents) {
         Count-OccurancesInEvent -lookfor $cCrit -combo $Combo -nodeCritCount ([ref]$nodeCritCount) -nodeHitCount ([ref]$nodeHitCount) -nodeEvadeCount ([ref]$nodeEvadeCount) -nodeFocusCount ([ref]$nodeFocusCount) -nodeBlankCount ([ref]$nodeBlankCount)
         $totalCount = $totalCount +1
 
@@ -325,8 +335,8 @@ function Count-XWingResults {
 #Counts how many occurnaces of each value occured in an event.
 function Count-OccurancesInEvent  {
     param (
-        [int]$lookfor, 
-        [int[]]$combo,
+        [string]$lookfor, 
+        [string[]]$combo,
         [ref]$nodeCritCount,
         [ref]$nodeHitCount,
         [ref]$nodeEvadeCount,
@@ -364,6 +374,25 @@ function Count-OccurancesInEvent  {
 
 
 
+######################################################################
+## Build Result Array
+######################################################################
+function Create-RestultsTable{
+
+
+    
+    #Create the custom object to store the results of each result
+    foreach ($item in $aryValues) {
+        write-host $item -ForegroundColor Cyan
+
+
+    }
+
+
+}
+
+
+
     
 ######################################################################
 ## Main
@@ -374,23 +403,26 @@ function Count-OccurancesInEvent  {
 if ($system -eq 'xWing') {
 
     # Variable representing the die faces in xWing (Crit, Hit, Evade, Focus and Blank)
-    Set-Variable cCrit  -option Constant -value 3 -Scope Global
-    Set-Variable cHit   -option Constant -value 2 -Scope Global
-    Set-Variable cEvade -option Constant -value 4 -Scope Global
-    Set-Variable cFocus -option Constant -value 1 -Scope Global
-    Set-Variable cBlank -option Constant -value 0 -Scope Global
+    Set-Variable cCrit  -option Constant -value "Crit" -Scope Global
+    Set-Variable cHit   -option Constant -value "Hit" -Scope Global
+    Set-Variable cEvade -option Constant -value "Evade" -Scope Global
+    Set-Variable cFocus -option Constant -value "Focus" -Scope Global
+    Set-Variable cBlank -option Constant -value "Blank" -Scope Global
 
     # Array representing one die (aka node) with one entry per face.
     $global:aryValues = @($cBlank,$cBlank,$cFocus,$cFocus,$cHit,$cHit,$cHit,$cCrit)
-    
+
     #Create the table of all possible results
     Create-DiceComboTable -Nodes $nodes
 
+    #Create the table to store all the results
+    Create-RestultsTable
+    
     #Count the results of the table containing all possible results
     Count-XWingResults
     
 
-
+    
 
 }
 
