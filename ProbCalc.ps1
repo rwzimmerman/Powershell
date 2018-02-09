@@ -6,13 +6,29 @@
 
 
 
+
+
 <#
     .SYNOPSIS
-        Calculates the probabiliites of outcome for die rolls and card flips.
+        Calculates the percentage chance of outcomes for die rolls, card draws, etc.
 
     .DESCRIPTION
+        Scenario - The parameters of the random event being measured.
+        Result - One possible outcome the scenario.  
+        Node - A single randomizaion element (e.g. one die, one card, onc coin, etc.)
+        Face - A single value from a node.  (e.g three on a die, or a queen on a playing card)
 
+        The script builds a table of all possible results of the scenario, then it counts
+        how many times a given result is achieved and summarized the data.  And outputs
+        the data.
 
+        For example if in a scenario 2 coins (nodes) were flipped, each having heads and
+        tails (2 faces) the scenario would have 4 possible results: HH, HT, TH, TT.
+        Scenario Summary 
+        2 Heads: 1
+        1 Heads: 2
+        1 Tails: 2
+        2 Tails: 1
 
     
     .PARAMETER Nodes
@@ -29,52 +45,83 @@
 
     .NOTES 
         Author: Robert Zimmerman
-        Updated: Jan 2018
+        Updated: Feb 2018
 
     .LINK
         
 #> 
 
 
-
-
-
 #https://weblogs.asp.net/soever/powershell-return-values-from-a-function-through-reference-parameters
 
 
-######################################################################
-## Variables
-######################################################################
-
-#how many nodes (coins flipped, dice rolled, etc...)
-$nodes = 3
-
-#the system being used
-$system = 'xWing'
-
-$Count = "Counting"
-$Node = "Nodetree"
 
 
+param(
+    [int]$nodes=2,            #the number of elements in the randomization (e.g. 3 cards, 2 dice, etc.)
+    [string[]]$Faces,
+    [switch]$XWingAtt,        #True if XWing attack dice are being used 
+    [switch]$XWingDef,        #True if XWing defence dice are being used 
+    [switch]$PlayingCards,    #True if a deck of playing cards are being used 
+    [switch]$Malifaux,        #True if a malifuax deck of playing cards are being used including the special rules for jockers
+    [switch]$ShowDebug        #if true debuging data will be displayed when the script executes.
+
+)
+
+
+
+
+#Keywords
+#This scirpt uses several dynamic arrays of dynamically generated custome objects to
+#generate arrays of all possible outcomes, tally those outcomes, then summarize the data.  The
+#properties of those custom object are comprized of the scenarious face values and keywords.
+#The script parses and sorts those objects based on the keywords below.  If a faces value
+#includes a keyword that would cause the parsing to fail.  The keywords are defined here
+#so they can be easily change and give values unlikely to be a face value.
+$Count = "C0Vnt"
+$Node = "Occurance"
+
+#Arrays
+#These are the tables that hold the results and summary data.
 $global:aryFaces = @()               #an array of each face of a node
 $global:aryResults = @()             #An array of every possible result.
 $global:aryResultsTemp = @()         #Temporar array used to create the array of every possible result.
 $global:arySummary = @()             #An array summarizing the total occurances of every possbile result (e.g. how many results have three 6's)
 
-$showDebug = $false
-$showDebug = $true
-$showDebug = $false
+
+
+#Faces
+#if a faces array is input then use it.
+#if one of the 'system' (e.g. Xwing Attack Dice) switches is used then use the faces for that system.
+if($Faces.count -ne 0) {
+    $global:aryFaces = $Faces
+}elseif($XWingAtt) {
+    $global:aryFaces = @("Blank","Blank","Focus","Focus","Hit","Hit","Hit","Crit")
+}elseif($XWingDef) {
+    $global:aryFaces = @("Blank","Blank","Blank","Focus","Focus","Evade","Evade","Evade")
+}elseif($PlayingCards) {
+    $global:aryFaces = @("BJ","1H","1D","1C","1S","2H","2D","2C","2S","3H","3D","3C","3S","4H","4D","4C","4S",`
+                         "5H","5D","5C","5S","6H","6D","6C","6S","7H","7D","7C","7S","8H","8D","8C","8S","9H","9D","9C","9S", `
+                         "10H","10D","10C","10S","11H","11D","11C","11S","12H","12D","12C","12S","13H","13D","13C","13S","RJ")
+}elseif($Malifaux) {
+    $global:aryFaces = @("0-","1R","1M","1T","1C","2R","2M","2T","2C","3R","3M","3T","3C","4R","4M","4T","4C",`
+                         "5R","5M","5T","5C","6R","6M","6T","6C","7R","7M","7T","7C","8R","8M","8T","8C","9R","9M","9T","9C", `
+                         "10R","10M","10T","10C","11R","11M","11T","11C","12R","12M","12T","12C","13R","13M","13T","13C","14*")
+}else{
+    $global:aryFaces = @("Heads","Tails")
+}
+
+
+
+
 
 
 
 
 ######################################################################
 ## New-ResultTable
-## Creates a table containing all the possible outcomes
-## This routine is best suited for dice and similar models, 
-## where each node value can occure on each die.  It is not suited
-## for card draw modles where a single instance of a card can only
-## be drawn once.
+## Creates a table containing all the possible results for the input
+## faces and nodes.
 ######################################################################
 
 
@@ -94,15 +141,10 @@ function New-ResultTable {
         $global:aryResults += $objResult
     }
 
-
     #Step through each node after the last
     for ($i = 2; $i -le $Nodes; $i++) {
         Add-ResultNode -nodeNum $i
     }
-
-
-
-
 }
 
 
@@ -294,7 +336,7 @@ function  Tally-ResultMetaData {
             #determine the property that will record the tally total for that face of the result record
             $propTally = $propValue + $Count
 
-            #step through each property in the event object
+            #step through each property in the result object
             foreach($prop in  $global:aryResults[$i].psobject.Properties) {
                 #if the name of the property matches the name of the face tally property increment it by 1
                 if($prop.name -eq $propTally) {
@@ -410,12 +452,12 @@ function Display-SummaryTable {
 }
 
 
-function Display-EventData {
+function Display-ScenarioData {
     Write-Host 
-    Write-Host "Event Data" -ForegroundColor Green
-    Write-Host " Nodes:  $nodes" 
-    Write-Host " Faces:  $($($global:aryFaces).count)"
-    Write-Host " Events: $($($global:aryResults).count)"
+    Write-Host "Scenario Data" -ForegroundColor Green
+    Write-Host " Nodes:   $nodes" 
+    Write-Host " Faces:   $($($global:aryFaces).count)"
+    Write-Host " Results: $($($global:aryResults).count)"
     
 }
 
@@ -425,41 +467,28 @@ function Display-EventData {
 ## Main
 ######################################################################
 
-#Process based on system
+#Create the table to store the summarized totals for each face
+New-SummaryTable
 
-if ($system -eq 'xWing') {
+#Create the table of all possible results
+New-ResultTable -Nodes $nodes
 
-    # Array representing one die (aka node) with one entry per face.
-    # This script assumes values will be listed from lowest (left) to highest (right)
-    $global:aryFaces = @("Blank","Blank","Focus","Focus","Hit","Hit","Hit","Crit")
-    $global:aryFaces = @("Blank","Crit")
-    $global:aryFaces = @("Blank","Blank","Hit","Crit")
-    $global:aryFaces = @("Blank","Blank","Blank","Focus","Focus","Evade","Evade","Evade")
-    $global:aryFaces = @("Blank","Blank","Focus","Focus","Hit","Hit","Hit","Crit")
-    
-    #Create the table to store the summarized totals for each face
-    New-SummaryTable
+#Add metadata properties to each result.  These poperties will hold sumarization data (e.g. highest face) about the result.
+Add-ResultMetaProperties
 
-    #Create the table of all possible results
-    New-ResultTable -Nodes $nodes
+#Count the occurances of each face in each result and record the totals in the metadata properties of each result object in the table.
+Tally-ResultTableMetaData
 
-    #Add metadata properties to each result.  These poperties will hold sumarization data (e.g. highest face) about the result.
-    Add-ResultMetaProperties
-    
-    #Count the occurances of each face in each result and record the totals in the metadata properties of each result object in the table.
-    Tally-ResultTableMetaData
+#Count the occurance of each face quantitn in each result and summarize the totals in the Summary table.
+Tally-Summarytable
 
-    #Count the occurance of each face quantitn in each result and summarize the totals in the Summary table.
-    Tally-Summarytable
-    
-    Display-EventData
-    #Display-ResultTable
-    Display-SummaryTable
-    #Display-FacesTable
-    
-    
+Display-ScenarioData
+#Display-ResultTable
+Display-SummaryTable
+#Display-FacesTable
 
-}
+
+
 
 
 
