@@ -145,7 +145,6 @@ function New-ResultTable {
     
     #Seed the result array by creating an entry for every possible result of a single node
 
-    write-host "Adding Node: 1" -ForegroundColor Green
     foreach($value in $script:aryFaces){
         $objResult = New-Object -TypeName PSObject
         $NameText = $delimiter + $node + "1" + $delimiter
@@ -172,16 +171,24 @@ function Add-ResultMetaProperties {
 
     #Create an empty array to hold the new results.
     $script:aryTemp = @()
+
+    #get size of initial result array
+    [int]$intialResultSize = $($script:aryResults).count
         
     if($showDebug ) {
         write-host "Adding Result Tally Properties" -ForegroundColor Green
     }
 
     #step through each result
-    $resultCount = 0
+    
+    [single]$resultCount = 0
     foreach($result in $script:aryResults){
 
+        #status bar
         $resultCount = $resultCount + 1
+        $percentComplete = ($resultCount / $intialResultSize)*100
+        Write-Progress -Activity "Extending Tables" -Status "Working..." -PercentComplete ($percentComplete)
+
         
         #create a clone of the current result
         $TempEntry = New-Object -TypeName PSObject
@@ -238,13 +245,22 @@ function Add-ResultNode {
         [int]$nodeNum
     )
 
-    write-host "Adding Node: $nodenum " -ForegroundColor Green
 
     #Create an empty array to hold the new results.
     $script:aryTemp = @()
+
+    #get size of initial result array
+    [int]$intialResultSize = $($script:aryResults).count
+    $resultCount = 0
     
     #step through each result
     foreach($result in $script:aryResults){
+        #Progress Bar
+        $resultCount = $resultCount +1
+        $percentComplete = ($resultCount / $intialResultSize)*100
+        Write-Progress -Activity "Generating Outcomes" -Status "Processing Node $nodeNum" -PercentComplete ($percentComplete)
+
+
         #step through each possible outcome of the current node
         foreach($value in $script:aryFaces){
 
@@ -322,8 +338,18 @@ function New-SummaryTable{
 function  Tally-ResultTableMetaData {
 
 
+    #get size of initial result array
+    [int]$intialResultSize = $($script:aryResults).count
+    $resultCount = 0
+    
+
     #step through each result
     for ($i = 0; $i -le $script:aryResults.count -1; $i++) {
+
+        #Progress Bar
+        $resultCount = $resultCount +1
+        $percentComplete = ($resultCount / $intialResultSize)*100
+        Write-Progress -Activity "Tallying Outcomes" -Status "Working..." -PercentComplete ($percentComplete)
 
         #Tally the result of each individual result
         Tally-ResultMetaData
@@ -408,9 +434,22 @@ function  Tally-ResultMetaData {
 function Tally-SummaryTable {
 
 
+    #get size of initial result array
+    [int]$intialResultSize = $($script:aryResults).count
+    $resultCount = 0
+    
+
     #step through each result in the result array
     foreach ($result in $aryResults) {
 
+        
+        #status bar
+        $resultCount = $resultCount + 1
+        $percentComplete = ($resultCount / $intialResultSize)*100
+        Write-Progress -Activity "Summarizing Outcomes" -Status "Working..." -PercentComplete ($percentComplete)
+        
+        
+        
         #step through each property in each result
         foreach($prop in $result.psobject.Properties) {
 
