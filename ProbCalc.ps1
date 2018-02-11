@@ -187,7 +187,7 @@ function Add-ResultMetaProperties {
         #status bar
         $resultCount = $resultCount + 1
         $percentComplete = ($resultCount / $intialResultSize)*100
-        Write-Progress -Activity "Extending Tables" -Status "Working..." -PercentComplete ($percentComplete)
+        Write-Progress -Activity "Extending Tables (Step 2/4)" -Status "Working..." -PercentComplete ($percentComplete)
 
         
         #create a clone of the current result
@@ -210,11 +210,8 @@ function Add-ResultMetaProperties {
             $lineName = $delimiter + $faceName + $orBetterCount + $delimiter
             Add-Member -InputObject $TempEntry -MemberType 'NoteProperty' -Name $lineName -Value 0
         }
-    
         #Add the new result to the new result table
         $script:aryTemp += $TempEntry
-
-        
     }
     #replace the old result table with the new result table
     $script:aryResults = $script:aryTemp
@@ -258,7 +255,7 @@ function Add-ResultNode {
         #Progress Bar
         $resultCount = $resultCount +1
         $percentComplete = ($resultCount / $intialResultSize)*100
-        Write-Progress -Activity "Generating Outcomes" -Status "Processing Node $nodeNum" -PercentComplete ($percentComplete)
+        Write-Progress -Activity "Generating Outcomes (Multi-part Step 1/4)" -Status "Processing Node $nodeNum" -PercentComplete ($percentComplete)
 
 
         #step through each possible outcome of the current node
@@ -349,7 +346,7 @@ function  Tally-ResultTableMetaData {
         #Progress Bar
         $resultCount = $resultCount +1
         $percentComplete = ($resultCount / $intialResultSize)*100
-        Write-Progress -Activity "Tallying Outcomes" -Status "Working..." -PercentComplete ($percentComplete)
+        Write-Progress -Activity "Tallying Outcomes (Step 3/4)" -Status "Working..." -PercentComplete ($percentComplete)
 
         #Tally the result of each individual result
         Tally-ResultMetaData
@@ -446,7 +443,7 @@ function Tally-SummaryTable {
         #status bar
         $resultCount = $resultCount + 1
         $percentComplete = ($resultCount / $intialResultSize)*100
-        Write-Progress -Activity "Summarizing Outcomes" -Status "Working..." -PercentComplete ($percentComplete)
+        Write-Progress -Activity "Summarizing Outcomes (Step 4/4)" -Status "Working..." -PercentComplete ($percentComplete)
         
         
         
