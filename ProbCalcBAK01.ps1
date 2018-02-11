@@ -58,7 +58,7 @@
 
 
 param(
-    [int]$NodeCount=2,            #the number of elements in the randomization (e.g. 3 cards, 2 dice, etc.)
+    [int]$nodes=2,            #the number of elements in the randomization (e.g. 3 cards, 2 dice, etc.)
     [string[]]$Faces,
     [switch]$XWingAtt,        #True if XWing attack dice are being used 
     [switch]$XWingDef,        #True if XWing defence dice are being used 
@@ -78,20 +78,15 @@ param(
 #The script parses and sorts those objects based on the keywords below.  If a faces value
 #includes a keyword that would cause the parsing to fail.  The keywords are defined here
 #so they can be easily change and give values unlikely to be a face value.
-[string]$delimiter = "^"
-[string]$node = "node"
-[string]$count = "Cnt"
-[string]$orBetterCount = "OBCnt"
-[string]$occurance = "Occ" 
-[string]$orBetterOccurance = "OBOcc" 
+$Count = "C0Vnt"
+$Node = "Occurance"
 
 #Arrays
 #These are the tables that hold the results and summary data.
 $global:aryFaces = @()               #an array of each face of a node
-$global:aryuniqueFaces = @()         #an array of each posible face of a node. Each value occurs only once an in the same order as in the Face Array
 $global:aryResults = @()             #An array of every possible result.
+$global:aryResultsTemp = @()         #Temporar array used to create the array of every possible result.
 $global:arySummary = @()             #An array summarizing the total occurances of every possbile result (e.g. how many results have three 6's)
-$global:aryTemp = @()                #Temporary array used in various functions
 
 
 
@@ -133,7 +128,7 @@ if($Faces.count -ne 0) {
 function New-ResultTable {
     param(
         [Parameter(Mandatory=$true)]
-        [int]$NodeCount                      #the number of items dice rolled, cards drawn, etc.
+        [int]$Nodes                      #the number of items dice rolled, cards drawn, etc.
     )
     
     #Seed the result array by creating an entry for every possible result of a single node
@@ -141,13 +136,13 @@ function New-ResultTable {
     write-host "Adding Node: 1" -ForegroundColor Green
     foreach($value in $global:aryFaces){
         $objResult = New-Object -TypeName PSObject
-        $NameText = $delimiter + $node + "1" + $delimiter
+        $NameText = "$node + 1"
         Add-Member -InputObject $objResult -MemberType 'NoteProperty' -Name $NameText -Value $value
         $global:aryResults += $objResult
     }
 
     #Step through each node after the last
-    for ($i = 2; $i -le $NodeCount; $i++) {
+    for ($i = 2; $i -le $Nodes; $i++) {
         Add-ResultNode -nodeNum $i
     }
 }
@@ -164,7 +159,7 @@ function New-ResultTable {
 function Add-ResultMetaProperties {
 
     #Create an empty array to hold the new results.
-    $global:aryTemp = @()
+    $global:aryResultsTemp = @()
         
     if($showDebug ) {
         write-host "Adding Result Tally Properties" -ForegroundColor Green
@@ -183,27 +178,23 @@ function Add-ResultMetaProperties {
         }
 
         #add metadata about the result
-        Add-Member -InputObject $TempEntry -MemberType 'NoteProperty' -Name $($delimiter + "ResultID" + $delimiter) -Value $resultCount
-        Add-Member -InputObject $TempEntry -MemberType 'NoteProperty' -Name $($delimiter + "HighFace" + $delimiter) -Value "Undefined"
-        Add-Member -InputObject $TempEntry -MemberType 'NoteProperty' -Name $($delimiter + "LowFace" + $delimiter) -Value "Undefined"
+        Add-Member -InputObject $TempEntry -MemberType 'NoteProperty' -Name "ResultID" -Value $resultCount
+        Add-Member -InputObject $TempEntry -MemberType 'NoteProperty' -Name "HighFace" -Value "Undefined"
+        Add-Member -InputObject $TempEntry -MemberType 'NoteProperty' -Name "LowFace" -Value "Undefined"
 
         #add metadata to each outcome for each item listed in the summary table
         foreach($line in $arySummary) {
-            $faceName = $line.face
-            $faceName = $faceName.replace($delimiter,"")
-            $lineName = $delimiter + $faceName + $count + $delimiter
-            Add-Member -InputObject $TempEntry -MemberType 'NoteProperty' -Name $lineName -Value 0
-            $lineName = $delimiter + $faceName + $orBetterCount + $delimiter
+            $lineName = $line.face + $Count
             Add-Member -InputObject $TempEntry -MemberType 'NoteProperty' -Name $lineName -Value 0
         }
     
         #Add the new result to the new result table
-        $global:aryTemp += $TempEntry
+        $global:aryResultsTemp += $TempEntry
 
         
     }
     #replace the old result table with the new result table
-    $global:aryResults = $global:aryTemp
+    $global:aryResults = $global:aryResultsTemp
 }
 
 
@@ -234,7 +225,7 @@ function Add-ResultNode {
     write-host "Adding Node: $nodenum " -ForegroundColor Green
 
     #Create an empty array to hold the new results.
-    $global:aryTemp = @()
+    $global:aryResultsTemp = @()
     
     #step through each result
     foreach($result in $global:aryResults){
@@ -248,15 +239,15 @@ function Add-ResultNode {
             }
             
             #add outcome for this itteration of the node to the result
-            $name = $delimiter + $node + $nodeNum + $delimiter
+            $name = $Node + $nodeNum
             Add-Member -InputObject $TempEntry -MemberType 'NoteProperty' -Name $name -Value $value
 
             #Add the new result to the new result table
-            $global:aryTemp += $TempEntry
+            $global:aryResultsTemp += $TempEntry
         }
     }
     #replace the old result table with the new result table
-    $global:aryResults = $global:aryTemp
+    $global:aryResults = $global:aryResultsTemp
 }
 
 
@@ -271,15 +262,13 @@ function Add-ResultNode {
 ######################################################################
 function New-SummaryTable{
 
-
     #step through each value in the side array
     foreach ($face in $aryFaces) {
         
         #check to see if the value of the face is already in the summary array
         $match = $false
-
         foreach ($line in $global:arySummary) {
-            if($line.face -eq $($delimiter + $face +$delimiter)){
+            if($line.face -eq $face){
                 $match = $true
             }
         }
@@ -287,12 +276,10 @@ function New-SummaryTable{
         #if there is NO match add the value of the face to the summary array
         if(!$match) {
             $objLine = New-Object -TypeName PSObject
-            Add-Member -InputObject $objLine -MemberType 'NoteProperty' -Name 'Face' -Value $($delimiter + $face +$delimiter)
+            Add-Member -InputObject $objLine -MemberType 'NoteProperty' -Name 'Face' -Value $face
             #add a property to the summary line object for each node in the result
-            for($i = 1; $i -le $NodeCount; $i++){
-                $name = $delimiter + [string]$i + $occurance + $delimiter
-                Add-Member -InputObject $objLine -MemberType 'NoteProperty' -Name $name -Value 0
-                $name = $delimiter + [string]$i + $orBetterOccurance + $delimiter
+            for($i = 1; $i -le $nodes; $i++){
+                $name = $Node + $i
                 Add-Member -InputObject $objLine -MemberType 'NoteProperty' -Name $name -Value 0
             }
 
@@ -303,8 +290,6 @@ function New-SummaryTable{
 
     #disply for debugging
     if($showDebug) {Display-SummaryTable}
-
-    
 }
 
 
@@ -339,58 +324,25 @@ function  Tally-ResultTableMetaData {
 
 function  Tally-ResultMetaData {
 
+    
     #Step through each property in the result
-    foreach($resProp in  $global:aryResults[$i].psobject.Properties) {
+    foreach($prop in  $global:aryResults[$i].psobject.Properties) {
+        #get the property name
+        $propName = $prop.name
+        #if the property has the string "node" in it, then its value is the face value for that node of the result.
+        if($propName -match $node) {
+            #Get the face result for that node
+            $propValue = $prop.value
+            #determine the property that will record the tally total for that face of the result record
+            $propTally = $propValue + $Count
 
-        #if the property has the $node string in it, then it represents a node and needs to be tallied.  Other properties contain metadata.
-        $nodeString = $delimiter + $node + "*"
-        if($resProp.name -like $nodeString) {
-
-            #use the value of the current node property to generate the name of the metadata property to be incremented.
-            #then step through each property looking for the matching name and incriment it
-            $tallyPropName = $delimiter + $($resProp.value) + $count + $delimiter
-            foreach($tallyProp in  $global:aryResults[$i].psobject.Properties) {
+            #step through each property in the result object
+            foreach($prop in  $global:aryResults[$i].psobject.Properties) {
                 #if the name of the property matches the name of the face tally property increment it by 1
-                if($tallyProp.name -eq $tallyPropName) {
-                    $tallyProp.value = $tallyProp.value +1
+                if($prop.name -eq $propTally) {
+                    $prop.value = $prop.value +1
                 }
             }
-            #xxx
-            #Determine if their are any lesser values that should also be incremented.
-            #A value is considered 'lesser' if it is earlier (a lower index number) in the faces array and has a 
-            #different value. For example if die is entered into the array as 'A','2','*','*','4' then A and 2 are
-            #considered lesser than * and if a '*' is on a node then 'A'  and '2' should also be incremented; 
-            #'4' would not and '*' would not be incrmented a second time no.
-
-            #find the faces index in the unique faces array.
-            $index = -1
-            
-            #step through each unique face until a match is found and get the index of the matching unique face.
-            for ($j = 0;$j -lt $($global:aryuniqueFaces).count; $j++) {
-                $uniqueFace = $global:aryuniqueFaces[$j]
-                if($uniqueFace -eq $resProp.value) {
-                    $index = $j
-                    $j = $($global:aryuniqueFaces).count
-                }                
-            }
-
-
-
-            #step through the unique faces array and incriment the or better meta data properites of the result for all faces
-            #from 0 to that index value.
-            if ($index -ge 0) {
-                #step through the unique face name array generating the names of the 'or better" properties to incriment"
-                for ($k = 0;$k -le $index; $k++) {
-
-                    $propNameToIncriment = $delimiter+ $global:aryuniqueFaces[$k] +$orBetterCount  + $delimiter
-                    #step through each propery in the current result
-                    foreach($orBetterProp in $global:aryResults[$i].psobject.Properties) {
-                        if($propNameToIncriment -eq $($orBetterProp.name)) {
-                            $orBetterProp.value = $orBetterProp.value + 1
-                        }
-                    }
-                }
-            }#End IF
         }
     }
 }
@@ -398,10 +350,10 @@ function  Tally-ResultMetaData {
 
 
 ######################################################################
-## Tally-SummaryTable
+## Tally-Summarytable
 ######################################################################
 
-function Tally-SummaryTable {
+function Tally-Summarytable {
 
 
     #step through each result in the result array
@@ -413,14 +365,14 @@ function Tally-SummaryTable {
 
             #if the value of the property is greather than 0 check to see if is is a tally
             if($prop.value -gt 0) {
-                #if the property name contains $count then it is the tally of a face for that result
-                if($prop.name -match $count ) {
+                #if the property name contains $Count then it is the tally of a face for that result
+                if($prop.name -match $Count) {
                     #get the face the tally is for
-                    $FaceName = [string]$($prop.name).replace($count,"")
+                    $FaceName = [string]$($prop.name).replace($Count,"")
                     #get the number of times the face occured in this result
                     $FaceCount = $prop.value
                     #get the name of the tally in the summary table to be incremented
-                    $TallyName = $delimiter + [string]$FaceCount + $occurance + $delimiter
+                    $TallyName = $node + $FaceCount
                     Increment-SummaryTable $FaceName $FaceCount
                 }
             }
@@ -447,11 +399,11 @@ function Tally-SummaryTable {
 function Increment-SummaryTable {
     param(
         [string]$FaceName,           #The name of the face that needs to be incremented
-        [int]$occurances             #How many time the face occured in the result being summarized
+        [int]$Occurances             #How many time the face occured in the result being summarized
     )
 
     #the property conresponding to the number of occurances in the result
-    $PropOcc = $delimiter + [string]$occurances + $occurance + $delimiter
+    $PropOcc = $node + $Occurances
 
     #Step through each line of the summary array
     foreach ($line in $global:arySummary) {
@@ -464,29 +416,6 @@ function Increment-SummaryTable {
                     $lineProp.value = $lineProp.value +1
                 }
             }
-        }
-    }
-}
-
-
-######################################################################
-## Create a table containing a list of each unique face
-######################################################################
-function New-uniqueFacessTable {
-
-    #step through each face in the faces array
-    foreach($face in $global:aryFaces) {
-
-        #step through each face in the unique faces array looking for a match
-        $match = $false
-        foreach($uniqueFace in $global:aryUniqueFaces) {
-            if($face -eq $uniqueFace) {
-                $match = $true
-            }
-        }
-        #if there is no match add it to the unique faces array
-        if(!$match){
-            $global:aryUniqueFaces += $face
         }
     }
 }
@@ -514,14 +443,6 @@ function Display-FacesTable {
     }
 }
 
-function Display-UniqueFacesTable {
-    Write-Host 
-    Write-Host "Unique Faces Table" -ForegroundColor Green
-    foreach($face in $aryUniqueFaces) {
-        write-host $face -ForegroundColor Yellow
-    }
-}
-
 function Display-SummaryTable {
     Write-Host 
     Write-Host "Summary Table" -ForegroundColor Green
@@ -534,7 +455,7 @@ function Display-SummaryTable {
 function Display-ScenarioData {
     Write-Host 
     Write-Host "Scenario Data" -ForegroundColor Green
-    Write-Host " Nodes:   $NodeCount" 
+    Write-Host " Nodes:   $nodes" 
     Write-Host " Faces:   $($($global:aryFaces).count)"
     Write-Host " Results: $($($global:aryResults).count)"
     
@@ -546,16 +467,11 @@ function Display-ScenarioData {
 ## Main
 ######################################################################
 
-
-#Creates an array listing each face once in same order as the faces array.
-New-uniqueFacessTable
-
-
 #Create the table to store the summarized totals for each face
 New-SummaryTable
 
 #Create the table of all possible results
-New-ResultTable -NodeCount $NodeCount
+New-ResultTable -Nodes $nodes
 
 #Add metadata properties to each result.  These poperties will hold sumarization data (e.g. highest face) about the result.
 Add-ResultMetaProperties
@@ -564,13 +480,12 @@ Add-ResultMetaProperties
 Tally-ResultTableMetaData
 
 #Count the occurance of each face quantitn in each result and summarize the totals in the Summary table.
-Tally-SummaryTable
+Tally-Summarytable
 
-#Display-ResultTable
 Display-ScenarioData
+#Display-ResultTable
 Display-SummaryTable
 #Display-FacesTable
-#Display-UniqueFacesTable
 
 
 
