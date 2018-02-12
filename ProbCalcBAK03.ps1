@@ -98,17 +98,11 @@ param(
 
 #Arrays
 #These are the tables that hold the results and summary data.
-
 $aryFaces = @()               #an array of each face of a node
-$aryUniqueFaces = @()         #an array of each posible face of a node. Each value occurs only once an in the same order as in the Face Array
+$aryuniqueFaces = @()         #an array of each posible face of a node. Each value occurs only once an in the same order as in the Face Array
+$aryResults = @()             #An array of every possible result.
 $arySummary = @()             #An array summarizing the total occurances of every possbile result (e.g. how many results have three 6's)
 $aryTemp = @()                #Temporary array used in various functions
-
-$aryResults = @()             #An array of every possible result.
-
-#$aryResults = New-Object System.Collections.Generic.List[]
-#$aryResults = New-Object System.Collections.Generic.List[System.String]
-#$aryResults = New-Object System.Collections.Generic.List[System.Management.Automation.PSCustomObject]
 
 
 
@@ -159,12 +153,7 @@ function New-ResultTable {
         $objResult = New-Object -TypeName PSObject
         $NameText = $delimiter + $node + "1" + $delimiter
         Add-Member -InputObject $objResult -MemberType 'NoteProperty' -Name $NameText -Value $value
-        #xxx
         $script:aryResults += $objResult
-        #$script:aryResults.Add($objResult)
-
-
-
     }
 
     #Step through each node after the last
@@ -333,8 +322,6 @@ function New-SummaryTable{
 
             #add the line object to the summary array
             $script:arySummary += $objLine
-            #write-host $objLine -ForegroundColor Yellow
-            #$script:arySummary.add($objLine)
         }
     }
 
@@ -410,11 +397,11 @@ function  Tally-ResultMetaData {
             $index = -1
             
             #step through each unique face until a match is found and get the index of the matching unique face.
-            for ($j = 0;$j -lt $($script:aryUniqueFaces).count; $j++) {
-                $uniqueFace = $script:aryUniqueFaces[$j]
+            for ($j = 0;$j -lt $($script:aryuniqueFaces).count; $j++) {
+                $uniqueFace = $script:aryuniqueFaces[$j]
                 if($uniqueFace -eq $resProp.value) {
                     $index = $j
-                    $j = $($script:aryUniqueFaces).count
+                    $j = $($script:aryuniqueFaces).count
                 }                
             }
 
@@ -426,7 +413,7 @@ function  Tally-ResultMetaData {
                 #step through the unique face name array generating the names of the 'or better" properties to incriment"
                 for ($k = 0;$k -le $index; $k++) {
 
-                    $propNameToIncriment = $delimiter+ $script:aryUniqueFaces[$k] +$orBetterCount  + $delimiter
+                    $propNameToIncriment = $delimiter+ $script:aryuniqueFaces[$k] +$orBetterCount  + $delimiter
                     #step through each propery in the current result
                     foreach($orBetterProp in $script:aryResults[$i].psobject.Properties) {
                         if($propNameToIncriment -eq $($orBetterProp.name)) {
@@ -558,7 +545,6 @@ function New-uniqueFacessTable {
         #if there is no match add it to the unique faces array
         if(!$match){
             $script:aryUniqueFaces += $face
-            #$script:aryUniqueFaces.add($face)
         }
     }
 }
@@ -631,18 +617,9 @@ function Display-SummaryTable {
 function Display-ScenarioData {
     Write-Host 
     Write-Host "Scenario Data" -ForegroundColor Green
-    Write-Host " Nodes:      $NodeCount" 
-    Write-Host " Faces:      $script:aryFaces"
-    Write-Host " Face Cnt:   $($($script:aryFaces).count)"
-    Write-Host " Result Cnt: $($($script:aryResults).count)"
-
-    if($XWingAtt) {
-        Write-Host " System:     xWingAtt"
-    } elseif($XWingDef) {
-        Write-Host " System:     xWingDef"
-    }
-
-
+    Write-Host " Nodes:   $NodeCount" 
+    Write-Host " Faces:   $($($script:aryFaces).count)"
+    Write-Host " Results: $($($script:aryResults).count)"
     
 }
 
@@ -652,9 +629,6 @@ function Display-ScenarioData {
 ## Main
 ######################################################################
 
-
-#get start time
-$startTime = Get-Date
 
 #Check for know issue with input and settings
 Validate-Settings
@@ -668,54 +642,24 @@ New-SummaryTable
 
 #Create the table of all possible results
 New-ResultTable -NodeCount $NodeCount
-$restultTableTime = Get-Date
 
 #Add metadata properties to each result.  These poperties will hold sumarization data (e.g. highest face) about the result.
 Add-ResultMetaProperties
-$restultMetaProperties = Get-Date
 
 #Count the occurances of each face in each result and record the totals in the metadata properties of each result object in the table.
 Tally-ResultTableMetaData
-$tallyRestultMetaData = Get-Date
 
 #Count the occurance of each face quantitn in each result and summarize the totals in the Summary table.
 Tally-SummaryTable
-$tallySummaryTable = Get-Date
 
 #Display-ResultTable
 Display-ScenarioData
-
-write-host 
-write-host "Times" -ForegroundColor Green
-write-host "New-ResultTable:              " $($restultTableTime - $startTime) 
-write-host "Add-ResultMetaProperties:     " $($restultMetaProperties - $startTime) 
-write-host "Tally-ResultTableMetaData:    " $($tallyRestultMetaData - $startTime) 
-write-host "Tally-SummaryTable:           " $($tallySummaryTable - $startTime) 
-
-
 Display-SummaryTable
 #Display-FacesTable
 #Display-UniqueFacesTable
 
 
 
-#Times for 4nodes of xWingAtt
-
-#Std method
-#Tally-SummaryTable 1:11
-
-#$collectionVariable = New-Object System.Collections.ArrayList
-#https://www.andreasbijl.com/powershell-create-collections-of-custom-objects/
-#Tally-SummaryTable 1:09
-
-
-#$aryResults = New-Object System.Collections.Generic.List[System.Management.Automation.PSCustomObject]
-#https://powershell.org/2013/09/16/powershell-performance-the-operator-and-when-to-avoid-it/
 
 
 
-
-#Notes to check out
-#https://kevinmarquette.github.io/2016-10-28-powershell-everything-you-wanted-to-know-about-pscustomobject/
-#https://cjoprey.wordpress.com/archived/custom-object-gotchas/
-#http://www.brianbunke.com/blog/2018/01/04/powershell-arraylist/
