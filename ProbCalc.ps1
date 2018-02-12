@@ -82,34 +82,15 @@ param(
 
 
 
-#Keywords
-#This scirpt uses several dynamic arrays of dynamically generated custome objects to
-#generate arrays of all possible outcomes, tally those outcomes, then summarize the data.  The
-#properties of those custom object are comprized of the scenarious face values and keywords.
-#The script parses and sorts those objects based on the keywords below.  If a faces value
-#includes a keyword that would cause the parsing to fail.  The keywords are defined here
-#so they can be easily change and give values unlikely to be a face value.
-[string]$delimiter = "^"
-[string]$node = "Node"
-[string]$count = "Amount"
-[string]$orBetterCount = "OrBetter"
-[string]$occurance = " Occurance Exactly" 
-[string]$orBetterOccurance = " Or Better Occurances" 
-
 #Arrays
-#These are the tables that hold the results and summary data.
+$aryFaces = @()               #This array holds the value on each face of each node
+$aryUniqueFaces = @()         #This array is a list of the unique faces on each node
+$aryResult = @()              #This array is the current result
+$arySumExactOcc = @()     #
+$arySumOrBetter = @()     #
 
-$aryFaces = @()               #an array of each face of a node
-$aryUniqueFaces = @()         #an array of each posible face of a node. Each value occurs only once an in the same order as in the Face Array
-$arySummary = @()             #An array summarizing the total occurances of every possbile result (e.g. how many results have three 6's)
-$aryTemp = @()                #Temporary array used in various functions
-
-$aryResults = @()             #An array of every possible result.
-
-#$aryResults = New-Object System.Collections.Generic.List[]
-#$aryResults = New-Object System.Collections.Generic.List[System.String]
-#$aryResults = New-Object System.Collections.Generic.List[System.Management.Automation.PSCustomObject]
-
+#Variables
+$resultID = -1                #The current result
 
 
 #Faces
@@ -139,6 +120,408 @@ if($Faces.count -ne 0) {
 
 
 
+##################################################################################################
+# Setup Functions
+#   Initialize variables, create arrays, etc...
+##################################################################################################
+
+##################################################################################################
+# Initializes the result array giving it the prober number of elements
+function Create-RestultArray {
+
+    for($i = 1; $i -le $NodeCount; $i++) {
+        $script:aryResult += "empty"
+    }
+}
+
+
+
+##################################################################################################
+## Create a table containing a list of each unique face
+function Create-UniqueFacessTable {
+    
+    #step through each face in the faces array
+    foreach($face in $script:aryFaces) {
+
+        #step through each face in the unique faces array looking for a match
+        $match = $false
+        foreach($uniqueFace in $script:aryUniqueFaces) {
+            if($face -eq $uniqueFace) {
+                $match = $true
+            }
+        }
+        #if there is no match add it to the unique faces array
+        if(!$match){
+            $script:aryUniqueFaces += $face
+            #$script:aryUniqueFaces.add($face)
+        }
+    }
+}
+    
+#done    
+##################################################################################################
+## Create a table containing totals for exact results
+function Create-SummaryTables {
+
+    #creat the Exact and OrBetter summary arrays
+    $faceCount = $script:aryUniqueFaces.count
+    $script:arySumExactOcc = New-Object 'object[,]' $faceCount,$([int]$NodeCount+1)
+    $script:arySumOrBetter = New-Object 'object[,]' $faceCount,$([int]$NodeCount+1)
+
+
+    #get row and column sizes
+    $rowCount = $($script:aryUniqueFaces).count
+    $colCount = $NodeCount +1
+    
+    #put the face name in the 0 element in the array
+    for($row = 0; $row -lt ($script:aryUniqueFaces).count; $row++) {
+        $arySumExactOcc[$row,0] = $script:aryUniqueFaces[$row]
+        $arySumOrBetter[$row,0] = $script:aryUniqueFaces[$row]
+        #zero the rest of the values in the arrays
+        for($col = 1; $col -le $([int]$NodeCount); $col++) {
+            $arySumExactOcc[$row,$col] = 0
+            $arySumOrBetter[$row,$col] = 0
+        }
+    }
+}
+
+
+
+
+
+
+
+
+
+##################################################################################################
+# Processing functions
+##################################################################################################
+
+
+
+##################################################################################################
+#Steps through each face of a node
+function Generate-Result {
+    param(
+        [int]$nodeNum = 1         #the current node
+    )
+
+    foreach($face in $script:aryFaces) {
+        $script:aryResult[$nodeNum -1] = $face
+
+        if($NodeCount -gt $nodeNum) {
+            $nextNode = $nodeNum +1
+            write-host
+            write-host "-------------------------------" -ForegroundColor green
+            write-host "Node Break" -ForegroundColor green
+            write-host "-------------------------------" -ForegroundColor green
+            Generate-Result -nodeNum $nextNode
+        } else {
+            $script:resultID = $script:resultID +1
+            Display-CurrentRestult
+            Analyze-Restult 
+            
+            
+
+        }
+    }
+}
+
+
+
+
+
+##################################################################################################
+#Looks at the current result and writes data to the summary tables
+function Analyze-Restult {
+    foreach ($face in $script:aryUniqueFaces){
+        $occurances = 0
+        foreach ($node in $script:aryResult) {
+            if($face -eq $node) {
+                $occurances++
+            }
+        }
+        if($occurances -gt 0) {
+            write-host "    Analyze-Restult:                $occurances $face"
+            Get-RowByFace -FaceName $face
+            Incriment-ExactOccSummaryArray -FaceName $face -Occurnaces $occurances
+            Incriment-OrBetterSummaryArray -FaceName $face -Occurnaces $occurances
+        }
+    }
+}
+
+
+##################################################################################################
+# 
+function Incriment-ExactOccSummaryArray {
+    param(
+        [string]$FaceName,            #the name of the face to incriment
+        [int]$Occurnaces              #the number of times the face occured
+    )
+
+    write-host "    Incriment-ExactOccSummaryArray  $Occurnaces $FaceName"
+    $rowCount = $($script:aryUniqueFaces).count -1
+    
+    for($row = $rowCount; $row -ge 0;$row--) {
+        $colFace = $script:arySumExactOcc[$row,0]
+        if($FaceName -eq $colFace) {
+            $script:arySumExactOcc[$row,$Occurnaces] = $script:arySumExactOcc[$row,$Occurnaces] +1
+            break
+        }
+    }
+}
+
+
+
+##################################################################################################
+# 
+function Incriment-OrBetterSummaryArray {
+    param(
+        [string]$FaceName,            #the name of the face to incriment
+        [int]$Occurnaces              #the number of times the face occured
+    )
+
+    write-host "    Incriment-OrBetterSummaryArray  $Occurnaces $FaceName"
+    $rowCount = $($script:aryUniqueFaces).count -1
+    for($row = $rowCount; $row -ge 0;$row--) {
+        $colFace = $script:arySumOrBetter[$row,0]
+        if ($FaceName -eq $colFace) {
+            $script:arySumOrBetter[$row,$Occurnaces] = $script:arySumOrBetter[$row,$Occurnaces] +1
+        }
+    }
+}
+
+
+
+
+##################################################################################################
+#Returns the row number of a given face value
+
+function Get-RowByFace {
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$FaceName            #the name of the face to find
+    )
+
+    $rowCount = $($script:aryUniqueFaces).count -1
+    for($row = $rowCount; $row -ge 0;$row--) {
+        $colFace = $script:arySumOrBetter[$row,0]
+        if ($FaceName -eq $colFace) {
+            $returnRow = $row
+            break
+        }
+    }
+    
+
+    write-host "    Get-RowByFace                   $FaceName Row: $returnRow"
+    
+
+
+}
+
+
+
+
+##################################################################################################
+# Display functions
+##################################################################################################
+
+
+##################################################################################################
+#Displays the value of each node in the current event
+function Display-CurrentRestult {
+    
+        [string]$output = "  ID: $script:resultID"
+        foreach($result in $script:aryResult) {
+            $output = $output + "   " + $result
+        }
+        Write-host 
+        Write-host $output -ForegroundColor Yellow
+        
+    }
+    
+
+
+#xxxxx
+##################################################################################################
+#Displays the summary table for Exact Occurnaces
+function Display-SummaryOrBetter {
+    
+    write-host
+    write-host "Or Better Summary Table" -ForegroundColor green
+    $rowCount = $($script:aryUniqueFaces).count
+    $colCount = $NodeCount +1
+    
+    for($row=0; $row -lt $rowCount;$row++) {
+        $outPut = "  "
+        for($col=0; $col -lt $colCount;$col++) {
+            $outPut = $outPut + [string]$script:arySumOrBetter[$row,$col] + "   "
+        }
+        write-host $outPut
+    }
+}
+    
+#Done
+##################################################################################################
+#Displays the summary table for Exact Occurnaces
+function Display-SummaryExactOcc {
+    
+    write-host
+    write-host "Exact Occurance Summary Table" -ForegroundColor green
+    $rowCount = $($script:aryUniqueFaces).count
+    $colCount = $NodeCount +1
+    
+    for($row=0; $row -lt $rowCount;$row++) {
+        $outPut = "  "
+        for($col=0; $col -lt $colCount;$col++) {
+            $outPut = $outPut + [string]$script:arySumExactOcc[$row,$col] + "   "
+        }
+        write-host $outPut
+    }
+}
+    
+        
+
+##################################################################################################
+#Displays a summary of the event
+function Display-ScenarioData {
+    Write-Host 
+    Write-Host "Scenario Data" -ForegroundColor Green
+    Write-Host " Nodes:      $NodeCount" 
+    Write-Host " Faces:      $script:aryFaces"
+    Write-Host " Face Cnt:   $($($script:aryFaces).count)"
+    Write-Host " Result Cnt: $($script:resultID +1)"
+
+    if($XWingAtt) {
+        Write-Host " System:     xWingAtt"
+    } elseif($XWingDef) {
+        Write-Host " System:     xWingDef"
+    }
+}
+
+
+
+
+
+
+
+##################################################################################################
+# Main
+##################################################################################################
+
+######################################
+# Setup
+Create-RestultArray
+Create-UniqueFacessTable
+Create-SummaryTables
+
+######################################
+# Processing
+Generate-Result
+
+######################################
+# Restuls
+Display-SummaryExactOcc
+Display-SummaryOrBetter
+Display-ScenarioData
+
+
+
+
+
+
+
+
+
+######################################################################
+##Version 1 below this point
+######################################################################
+######################################################################
+######################################################################
+######################################################################
+######################################################################
+######################################################################
+######################################################################
+######################################################################
+######################################################################
+######################################################################
+######################################################################
+######################################################################
+######################################################################
+######################################################################
+######################################################################
+
+
+#OLD ARRAYS
+$arySummary = @()             #An array summarizing the total occurances of every possbile result (e.g. how many results have three 6's)
+$aryTemp = @()                #Temporary array used in various functions
+$aryResults = @()             #An array of every possible result.
+
+#Keywords
+#This scirpt uses several dynamic arrays of dynamically generated custome objects to
+#generate arrays of all possible outcomes, tally those outcomes, then summarize the data.  The
+#properties of those custom object are comprized of the scenarious face values and keywords.
+#The script parses and sorts those objects based on the keywords below.  If a faces value
+#includes a keyword that would cause the parsing to fail.  The keywords are defined here
+#so they can be easily change and give values unlikely to be a face value.
+[string]$delimiter = "^"
+[string]$node = "Node"
+[string]$count = "Amount"
+[string]$orBetterCount = "OrBetter"
+[string]$occurance = " Occurance Exactly" 
+[string]$orBetterOccurance = " Or Better Occurances" 
+
+
+
+
+
+#Variables
+$resultCount                  #The number of possible outcomes of a given event
+
+
+
+
+
+
+
+#########################################################
+#Cacluates how many results there will be.  Used to create tables to hold results.
+Function Calculate-ResultCount {
+    #get the number of faces of each node
+    $faceCount = $aryFaces.count
+    #raise the number of nodes to the power of the faces on each node.
+    $script:resultCount = [math]::pow($NodeCount,$faceCount)
+}
+
+
+
+
+function Create-NodeTable {
+
+    $script:aryNodes = New-Object 'object[,]' 10,20
+    #$script:aryNodes = (("item1","value1"),("asdfasdfasdfasdfdsfdf","asdfdsdfdfd"),("item3","value3"))
+
+
+    #$script:aryNodes = (("item1","value1"),("asdfasdfasdfasdfdsfdf","asdfdsdfdfd"),("item3","value3"))
+    
+    
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 ######################################################################
 ## New-ResultTable
@@ -159,7 +542,6 @@ function New-ResultTable {
         $objResult = New-Object -TypeName PSObject
         $NameText = $delimiter + $node + "1" + $delimiter
         Add-Member -InputObject $objResult -MemberType 'NoteProperty' -Name $NameText -Value $value
-        #xxx
         $script:aryResults += $objResult
         #$script:aryResults.Add($objResult)
 
@@ -540,29 +922,6 @@ function Increment-SummaryTable {
 }
 
 
-######################################################################
-## Create a table containing a list of each unique face
-######################################################################
-function New-uniqueFacessTable {
-
-    #step through each face in the faces array
-    foreach($face in $script:aryFaces) {
-
-        #step through each face in the unique faces array looking for a match
-        $match = $false
-        foreach($uniqueFace in $script:aryUniqueFaces) {
-            if($face -eq $uniqueFace) {
-                $match = $true
-            }
-        }
-        #if there is no match add it to the unique faces array
-        if(!$match){
-            $script:aryUniqueFaces += $face
-            #$script:aryUniqueFaces.add($face)
-        }
-    }
-}
-
 
 
 
@@ -627,14 +986,25 @@ function Display-SummaryTable {
 
 }
 
+function Display-RunTimes {
+    Write-Host 
+    write-host 
+    write-host "Run Times" -ForegroundColor Green
+    write-host "New-ResultTable:              " $($restultTableTime - $startTime)
+    write-host "Add-ResultMetaProperties:     " $($restultMetaProperties - $startTime) 
+    write-host "Tally-ResultTableMetaData:    " $($tallyRestultMetaData - $startTime) 
+    write-host "Tally-SummaryTable:           " $($tallySummaryTable - $startTime) 
+    
+}
 
-function Display-ScenarioData {
+
+function Display-ScenarioDataOLD {
     Write-Host 
     Write-Host "Scenario Data" -ForegroundColor Green
     Write-Host " Nodes:      $NodeCount" 
     Write-Host " Faces:      $script:aryFaces"
     Write-Host " Face Cnt:   $($($script:aryFaces).count)"
-    Write-Host " Result Cnt: $($($script:aryResults).count)"
+    Write-Host " Result Cnt: $resultCount"
 
     if($XWingAtt) {
         Write-Host " System:     xWingAtt"
@@ -653,15 +1023,23 @@ function Display-ScenarioData {
 ######################################################################
 
 
+
+if($false) {
+    
+
+
 #get start time
 $startTime = Get-Date
 
-#Check for know issue with input and settings
+
+
+#Initial set up
 Validate-Settings
+Calculate-ResultCount
 
-#Creates an array listing each face once in same order as the faces array.
-New-uniqueFacessTable
-
+#Creates arrays
+Create-UniqueFacessTable
+Create-NodeTable
 
 #Create the table to store the summarized totals for each face
 New-SummaryTable
@@ -682,21 +1060,21 @@ $tallyRestultMetaData = Get-Date
 Tally-SummaryTable
 $tallySummaryTable = Get-Date
 
+
+######################################################
+#Displays
+######################################################
 #Display-ResultTable
-Display-ScenarioData
-
-write-host 
-write-host "Times" -ForegroundColor Green
-write-host "New-ResultTable:              " $($restultTableTime - $startTime) 
-write-host "Add-ResultMetaProperties:     " $($restultMetaProperties - $startTime) 
-write-host "Tally-ResultTableMetaData:    " $($tallyRestultMetaData - $startTime) 
-write-host "Tally-SummaryTable:           " $($tallySummaryTable - $startTime) 
-
-
+Display-ScenarioDataOLD
+Display-NodesTable
+#Display-RunTimes
 Display-SummaryTable
 #Display-FacesTable
 #Display-UniqueFacesTable
 
+######################################################
+## Notes
+######################################################
 
 
 #Times for 4nodes of xWingAtt
@@ -719,3 +1097,5 @@ Display-SummaryTable
 #https://kevinmarquette.github.io/2016-10-28-powershell-everything-you-wanted-to-know-about-pscustomobject/
 #https://cjoprey.wordpress.com/archived/custom-object-gotchas/
 #http://www.brianbunke.com/blog/2018/01/04/powershell-arraylist/
+
+}
