@@ -7,22 +7,37 @@
 
     .DESCRIPTION
         Scenario - The parameters of the random event being measured.
-        Result - One possible outcome the scenario.  
+        Result - One of many possible outcomes in a scenario.  
         Node - A single randomizaion element (e.g. one die, one card, onc coin, etc.)
         Face - A single value from a node.  (e.g three on a die, or a queen on a playing card)
 
-        The script builds a table of all possible results of the scenario, then it counts
-        how many times a given result is achieved and summarized the data.  And outputs
-        the data.
+        The script steps through every possible result a scenario can yeild.  Each result
+        is analyzed and the data summarized into tables showing how many "exact occurnace"
+        and how many "or better" matches occured.
+        Exact Occurance Match - This occurs when exaclty that number of the result occurs.  For example
+        if two 6's occured in a result it would be an exact match for 2x6, but not for 1x6.
+        Or Better Match - This occurs when the result or better occured. For example if 
+        two 6's occured in a result it would be an "or better" match for 2x6, 1x6 and 2x5, 
+        but not for 2x7 or 3x6.
 
-        For example if in a scenario 2 coins (nodes) were flipped, each having heads and
+        The script assumes faces are input in order of value with the lowest on the left
+        and the highest on the right.
+        Example: 3,2,1 would give 1 the highest value, followed by 2, then 3.
+
+        If in a scenario 2 coins (nodes) were flipped, each having heads and
         tails (2 faces) the scenario would have 4 possible results: HH, HT, TH, TT.
-        Scenario Summary 
-        2 Heads: 1
-        1 Heads: 2
-        1 Tails: 2
-        2 Tails: 1
 
+        Or Better Summary
+        Face   1    2
+        Heads  4    4
+        Tails  3    1
+
+        Exact Occurnace Summary
+        Face   1    2
+        Heads  2    1   Meaning two of four results give exacly 1 head, one of four results give exacly 2 heads
+        Tails  2    1   Meaning two of four results give exacly 1 tails, one of four results give exacly 2 tails
+
+        
     
     .PARAMETER Nodes
     
@@ -390,22 +405,27 @@ function Display-SummaryExactOcc {
         write-host $outPut
     }
 }
-    
+
+
+
+
 ##################################################################################################
 #Displays the summary table for Exact Occurnaces
-function Display-SummaryExactOcc2 {
-    
-    write-host
-    write-host "------------------------------------------------------------------------------" -ForegroundColor green
-    write-host "Exact Occurance Summary Table" -ForegroundColor green
-    write-host "------------------------------------------------------------------------------" -ForegroundColor green
+function Display-SummaryTable {
+    param(
+        [switch]$OrBetter,             #True if the OrBetter table should be displayed
+        [switch]$ExactOcc              #True if the Exact Occurnaces table should be displayed
+    )
+
+
+    #if neither switch is true display nothing
+    if(!$OrBetter -and !$ExactOcc) {
+        return
+    }
+
     $rowCount = $($script:aryUniqueFaces).count
     $colCount = $NodeCount +1
     
-
-    
-    #Write-host ("{0,-1} {1,-8} {2,-8} {3,-8} {4,-8} {5,-8} {6,-8} {7,-8} {8,-8} {9,-8} " -f "","Face","1","2","3","4","5","6","7","8") -ForegroundColor green
-
 
     #generate output format
     #initialize the format string
@@ -414,7 +434,7 @@ function Display-SummaryExactOcc2 {
         $indexNum = $col +1
         $outFormat = $outFormat + "{$indexNum,-6} "
     }
-    
+
     #output header row
     $outData = @()     #initialize the data array to output the data
     $outData += ""
@@ -425,16 +445,32 @@ function Display-SummaryExactOcc2 {
             $outData += $col
         }
     }
+    
     #output the formatted line of data
-    write-host ($outFormat -f $outData) -ForegroundColor green
 
+    if($OrBetter) {
+        $outTableTitle = "Or Better Summary Table"
+    } elseif($ExactOcc) {
+        $outTableTitle = "Exact Occurance Summary Table"
+    }
+
+
+    write-host
+    write-host "------------------------------------------------------------------------------" -ForegroundColor green
+    write-host $outTableTitle -ForegroundColor green
+    write-host "------------------------------------------------------------------------------" -ForegroundColor green
+    write-host ($outFormat -f $outData) -ForegroundColor green
 
     #generate and out put one row of data for each row
     for($row=0; $row -lt $rowCount;$row++) {
         $outData = @()     #initialize the data array to output the data
         $outData += ""
         for($col=0; $col -lt $colCount;$col++) {
-            $outData += $script:arySumExactOcc[$row,$col]
+            if($OrBetter) {
+                $outData += $script:arySumOrBetter[$row,$col]
+            } elseif($ExactOcc) {
+                $outData += $script:arySumExactOcc[$row,$col]
+            }
         }
         #output the formatted line of data
         write-host ($outFormat -f $outData)
@@ -446,22 +482,32 @@ function Display-SummaryExactOcc2 {
 ##################################################################################################
 #Displays a summary of the event
 function Display-ScenarioData {
-    Write-Host 
-    Write-Host "Scenario Data" -ForegroundColor Green
-    Write-Host " Nodes:      $NodeCount" 
-    Write-Host " Faces:      $script:aryFaces"
-    Write-Host " Face Cnt:   $($($script:aryFaces).count)"
-    Write-Host " Result Cnt: $($script:resultID +1)"
 
+
+    $outFormat = "{0,-1} {1,-12} {2,-20}"
+
+    Write-Host 
+    write-host "------------------------------------------------------------------------------" -ForegroundColor green
+    Write-Host "Scenario Data" -ForegroundColor Green
+    write-host "------------------------------------------------------------------------------" -ForegroundColor green
+    Write-Host "  Nodes:      $NodeCount" 
+    Write-Host "  Faces:      $script:aryFaces"
+
+    Write-Host ($outFormat -f "","Nodes:",$NodeCount) -ForegroundColor blue
+    Write-Host ($outFormat -f "","Face Cnt:",$($($script:aryFaces).count)) -ForegroundColor blue
+    Write-Host ($outFormat -f "","Result Cnt:",$($script:resultID +1)) -ForegroundColor blue
+    
 
     if($XWingAtt) {
-        Write-Host " System:     xWingAtt"
+        Write-Host ($outFormat -f "","System:","XWing Attack Dice") -ForegroundColor blue
     } elseif($XWingDef) {
-        Write-Host " System:     xWingDef"
+        Write-Host ($outFormat -f "","System:","xWing Defence Dice") -ForegroundColor blue
     }
 
     $runTime = $(Get-Date) - $startTime
-    Write-Host " Run Time:   $runTime"
+    Write-Host ($outFormat -f "","Run Time:",$runTime) -ForegroundColor blue
+
+
 }
 
 
@@ -484,9 +530,9 @@ Generate-Result
 ######################################
 # Restuls
 Display-ScenarioData
-Display-SummaryExactOcc
-Display-SummaryExactOcc2
-Display-SummaryOrBetter
+Display-SummaryTable -OrBetter
+Display-SummaryTable -ExactOcc
+
 
 
 
