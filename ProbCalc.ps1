@@ -86,28 +86,33 @@ $arySumOrBetter = @()         #
 $resultID = -1                #The current result
 
 
+
 #Faces
 #if a faces array is input then use it.
 #if one of the 'system' (e.g. Xwing Attack Dice) switches is used then use the faces for that system.
 if($Faces.count -ne 0) {
-    $script:aryFaces = $Faces
+    $aryFaces = $Faces
 }elseif($XWingAtt) {
-    $script:aryFaces = @("Blank","Blank","Focus","Focus","Hit","Hit","Hit","Crit")
+    $aryFaces = @("Blank","Blank","Focus","Focus","Hit","Hit","Hit","Crit")
 }elseif($XWingDef) {
-    $script:aryFaces = @("Blank","Blank","Blank","Focus","Focus","Evade","Evade","Evade")
+    $aryFaces = @("Blank","Blank","Blank","Focus","Focus","Evade","Evade","Evade")
 }elseif($PlayingCards) {
-    $script:aryFaces = @("BJ","1H","1D","1C","1S","2H","2D","2C","2S","3H","3D","3C","3S","4H","4D","4C","4S",`
+    $aryFaces = @("BJ","1H","1D","1C","1S","2H","2D","2C","2S","3H","3D","3C","3S","4H","4D","4C","4S",`
                          "5H","5D","5C","5S","6H","6D","6C","6S","7H","7D","7C","7S","8H","8D","8C","8S","9H","9D","9C","9S", `
                          "10H","10D","10C","10S","11H","11D","11C","11S","12H","12D","12C","12S","13H","13D","13C","13S","RJ")
 }elseif($Malifaux) {
-    $script:aryFaces = @("0-","1R","1M","1T","1C","2R","2M","2T","2C","3R","3M","3T","3C","4R","4M","4T","4C",`
+    $aryFaces = @("0-","1R","1M","1T","1C","2R","2M","2T","2C","3R","3M","3T","3C","4R","4M","4T","4C",`
                          "5R","5M","5T","5C","6R","6M","6T","6C","7R","7M","7T","7C","8R","8M","8T","8C","9R","9M","9T","9C", `
                          "10R","10M","10T","10C","11R","11M","11T","11C","12R","12M","12T","12C","13R","13M","13T","13C","14*")
 }else{
-    $script:aryFaces = @("Heads","Tails")
+    $aryFaces = @("Heads","Tails")
 }
 
 
+
+#estimate the number of results for the statuse bar
+$resultCount = 0
+$estResultCount = [math]::pow($aryFaces.count,$NodeCount)
 
 
 
@@ -182,6 +187,7 @@ function Create-SummaryTables {
 # Processing functions
 ##################################################################################################
 
+
 ##################################################################################################
 #Steps through each face of a node
 function Generate-Result {
@@ -197,6 +203,7 @@ function Generate-Result {
             Generate-Result -nodeNum $nextNode
         } else {
             $script:resultID = $script:resultID +1
+            Write-Progress -Activity "Generating Results" -status "Result $script:resultID of $script:estResultCount" -percentComplete ($script:resultID / $script:estResultCount * 100)
             #Display-CurrentRestult
             Analyze-Restult 
         }
@@ -384,6 +391,56 @@ function Display-SummaryExactOcc {
     }
 }
     
+##################################################################################################
+#Displays the summary table for Exact Occurnaces
+function Display-SummaryExactOcc2 {
+    
+    write-host
+    write-host "------------------------------------------------------------------------------" -ForegroundColor green
+    write-host "Exact Occurance Summary Table" -ForegroundColor green
+    write-host "------------------------------------------------------------------------------" -ForegroundColor green
+    $rowCount = $($script:aryUniqueFaces).count
+    $colCount = $NodeCount +1
+    
+
+    
+    #Write-host ("{0,-1} {1,-8} {2,-8} {3,-8} {4,-8} {5,-8} {6,-8} {7,-8} {8,-8} {9,-8} " -f "","Face","1","2","3","4","5","6","7","8") -ForegroundColor green
+
+
+    #generate output format
+    #initialize the format string
+    $outFormat = "{0,-1} "
+    for($col=0; $col -lt $colCount;$col++) {
+        $indexNum = $col +1
+        $outFormat = $outFormat + "{$indexNum,-6} "
+    }
+    
+    #output header row
+    $outData = @()     #initialize the data array to output the data
+    $outData += ""
+    for($col=0; $col -lt $colCount;$col++) {
+        if($col -eq 0) {
+            $outData += "Face"
+        } else {
+            $outData += $col
+        }
+    }
+    #output the formatted line of data
+    write-host ($outFormat -f $outData) -ForegroundColor green
+
+
+    #generate and out put one row of data for each row
+    for($row=0; $row -lt $rowCount;$row++) {
+        $outData = @()     #initialize the data array to output the data
+        $outData += ""
+        for($col=0; $col -lt $colCount;$col++) {
+            $outData += $script:arySumExactOcc[$row,$col]
+        }
+        #output the formatted line of data
+        write-host ($outFormat -f $outData)
+    }
+}
+    
         
 
 ##################################################################################################
@@ -396,11 +453,15 @@ function Display-ScenarioData {
     Write-Host " Face Cnt:   $($($script:aryFaces).count)"
     Write-Host " Result Cnt: $($script:resultID +1)"
 
+
     if($XWingAtt) {
         Write-Host " System:     xWingAtt"
     } elseif($XWingDef) {
         Write-Host " System:     xWingDef"
     }
+
+    $runTime = $(Get-Date) - $startTime
+    Write-Host " Run Time:   $runTime"
 }
 
 
@@ -411,6 +472,7 @@ function Display-ScenarioData {
 
 ######################################
 # Setup
+$startTime = Get-Date
 Create-RestultArray
 Create-UniqueFacessTable
 Create-SummaryTables
@@ -423,6 +485,7 @@ Generate-Result
 # Restuls
 Display-ScenarioData
 Display-SummaryExactOcc
+Display-SummaryExactOcc2
 Display-SummaryOrBetter
 
 
