@@ -86,7 +86,8 @@ param(
     [switch]$PlayingCards,      #True if a deck of playing cards are being used 
     [switch]$MalifauxSuited,    #
     [switch]$MalifauxUnsuited,  #
-    [switch]$Test    ,          #Test
+    [switch]$Example,            #
+    [switch]$Test,              #Test Data
     [switch]$ShowDebug          #if true debuging data will be displayed when the script executes.
 
 )
@@ -121,6 +122,9 @@ if($Faces.count -ne 0) {
 }elseif($Test) {
     $aryFaces = @("BJ","1","2","3","4","4","5","5","6","RJ")
     $systemName = "Test Data"
+}elseif($Example) {
+    $aryFaces = @("1","1","2","2","3","4","5","6")
+    $systemName = "Example"
 }elseif($MalifauxUnsuited) {
     $aryFaces = @("BJ","1","1","1","1","2","2","2","2","3","3","3","3","4","4","4","4",`
                   "5","5","5","5","6","6","6","6","7","7","7","7","8","8","8","8","9","9","9","9", `
@@ -518,16 +522,20 @@ function Display-SummaryTable {
 
     if($OrBetter) {
         $outTableTitle = "Or Better Table"
+        $outDescritption = "This table shows how many occurances have the face or a better result the given number of times or more (e.g. 2 or more three's or better). "
     } elseif($OrMore) {
         $outTableTitle = "Or More Table"
+        $outDescritption = "This table shows how many occurances have the face the given number of times or more (e.g. 2 or more threes). "
     } elseif($ExactOcc) {
-        $outTableTitle = "Literal Occurance Table"
+        $outTableTitle = "Occurances Table"
+        $outDescritption = "The acutal number of times a combo (e.g. exacly 2 threes) occurs."
     }
 
 
     write-host
     write-host "------------------------------------------------------------------------------" -ForegroundColor green
     write-host "$outTableTitle           Possible restuls: $($script:resultID +1)"   -ForegroundColor green
+    write-host "$outDescritption"   -ForegroundColor green
     write-host "------------------------------------------------------------------------------" -ForegroundColor green
 #    Write-Host ($outFormat -f "","Result Cnt:",$($script:resultID +1))  
 
@@ -610,8 +618,8 @@ Generate-Result -DrawPool $aryDrawPool
 # Restuls
 Display-ScenarioData
 Display-SummaryTable -ExactOcc
-Display-SummaryTable -OrBetter
 Display-SummaryTable -OrMore
+Display-SummaryTable -OrBetter
 
 
 
