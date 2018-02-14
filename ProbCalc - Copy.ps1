@@ -56,11 +56,8 @@
         Updated: Feb 2018
 
         To Do:
-        Add "Equivalent Faces" logic.  So heads is not better than tails or vice versa
+        Add "exhausted nodes" for cards where a given value can only result once
         Add "reroll logic" allow for rerolls and caclute percentages after a reroll
-        add "summing logic" if all faces are numeric then add them to gether (e.g. 1,1,3 = 5)
-        add "malifaux logic" account for red and black jokers.
-        add more built in systems like Malifaux, d4, d6, etc.
 
 
         Array notes
@@ -78,16 +75,14 @@
 
 
 param(
-    [int]$NodeCount=2,          #the number of elements in the randomization (e.g. 3 cards, 2 dice, etc.)
-    [string[]]$Faces,           #
-    [switch]$ExhaustFaces,      #
-    [switch]$XWingAtt,          #True if XWing attack dice are being used 
-    [switch]$XWingDef,          #True if XWing defence dice are being used 
-    [switch]$PlayingCards,      #True if a deck of playing cards are being used 
-    [switch]$MalifauxSuited,    #
-    [switch]$MalifauxUnsuited,  #
-    [switch]$Test    ,          #Test
-    [switch]$ShowDebug          #if true debuging data will be displayed when the script executes.
+    [int]$NodeCount=2,        #the number of elements in the randomization (e.g. 3 cards, 2 dice, etc.)
+    [string[]]$Faces,
+    [switch]$EquivalentFaces, #True if all faces have the same relative value (e.g. the two faces of a coin are different, but neither is better)
+    [switch]$XWingAtt,        #True if XWing attack dice are being used 
+    [switch]$XWingDef,        #True if XWing defence dice are being used 
+    [switch]$PlayingCards,    #True if a deck of playing cards are being used 
+    [switch]$Malifaux,        #True if a malifuax deck of playing cards are being used including the special rules for jockers
+    [switch]$ShowDebug        #if true debuging data will be displayed when the script executes.
 
 )
 
@@ -104,7 +99,7 @@ $arySumOrMore = @()           #
 
 #Variables
 $resultID = -1                #The current result
-$systemName =""               #The name of the system used if any
+
 
 
 #Faces
@@ -114,25 +109,16 @@ if($Faces.count -ne 0) {
     $aryFaces = $Faces
 }elseif($XWingAtt) {
     $aryFaces = @("Blank","Blank","Focus","Focus","Hit","Hit","Hit","Crit")
-    $systemName = "X-Wing Attack Dice"
 }elseif($XWingDef) {
     $aryFaces = @("Blank","Blank","Blank","Focus","Focus","Evade","Evade","Evade")
-    $systemName = "X-Wing Defence Dice"
-}elseif($Test) {
-    $aryFaces = @("BJ","1","2","3","4","4","5","5","6","RJ")
-    $systemName = "Test Data"
-}elseif($MalifauxUnsuited) {
-    $aryFaces = @("BJ","1","1","1","1","2","2","2","2","3","3","3","3","4","4","4","4",`
-                  "5","5","5","5","6","6","6","6","7","7","7","7","8","8","8","8","9","9","9","9", `
-                  "10","10","10","10","11","11","11","11","12","12","12","12","13","13","13","13","RJ")
-    $systemName = "Malifaux Unsuited Cards"
-}elseif($MalifauxSuited) {
-    $aryFaces = @()
-    for($i = 1; $i -le 39; $i++) {
-        $aryFaces += "NA"
-    }
-    $aryFaces += @("BJ","1","2","3","4","5","6","7","8","9","10","11","12","13","RJ")
-    $systemName = "Malifaux Sited Cards"
+}elseif($PlayingCards) {
+    $aryFaces = @("BJ","1H","1D","1C","1S","2H","2D","2C","2S","3H","3D","3C","3S","4H","4D","4C","4S",`
+                         "5H","5D","5C","5S","6H","6D","6C","6S","7H","7D","7C","7S","8H","8D","8C","8S","9H","9D","9C","9S", `
+                         "10H","10D","10C","10S","11H","11D","11C","11S","12H","12D","12C","12S","13H","13D","13C","13S","RJ")
+}elseif($Malifaux) {
+    $aryFaces = @("0-","1R","1M","1T","1C","2R","2M","2T","2C","3R","3M","3T","3C","4R","4M","4T","4C",`
+                         "5R","5M","5T","5C","6R","6M","6T","6C","7R","7M","7T","7C","8R","8M","8T","8C","9R","9M","9T","9C", `
+                         "10R","10M","10T","10C","11R","11M","11T","11C","12R","12M","12T","12C","13R","13M","13T","13C","14*")
 }else{
     $aryFaces = @("Heads","Tails")
 }
@@ -224,24 +210,15 @@ function Create-SummaryTables {
 #Steps through each face of a node
 function Generate-Result {
     param(
-        [int]$nodeNum = 1,         #the current node
-        [Parameter(Mandatory=$true)]
-        [string[]]$DrawPool
+        [int]$nodeNum = 1         #the current node
     )
 
-
-    foreach($face in $DrawPool ) {
+    foreach($face in $script:aryFaces ) {
         $script:aryResult[$nodeNum -1] = $face
+
         if($NodeCount -gt $nodeNum) {
             $nextNode = $nodeNum +1
-
-            #if exhause faces is set then remove the current face from the pool for later draws
-            if($ExhaustFaces) {
-                $nextDrawPool = Create-DrawPool -PoolIn $DrawPool -RemoveFace  $face
-            } else {
-                $nextDrawPool = Create-DrawPool -PoolIn $DrawPool
-            }
-            Generate-Result -nodeNum $nextNode -DrawPool $nextDrawPool
+            Generate-Result -nodeNum $nextNode
         } else {
             $script:resultID = $script:resultID +1
             Write-Progress -Activity "Generating Results" -status "Result $script:resultID of $script:estResultCount" -percentComplete ($script:resultID / $script:estResultCount * 100)
@@ -253,27 +230,17 @@ function Generate-Result {
 
 
 ##################################################################################################
-## Creates a new draw pool from an existing pool.
-## RemoveFace will remove ONE instnace of face from the pool.  So if the poll is "1,1,2,2,3,3,4,4"
-## and Remove Face = "2" the new pool will be "1,1,2,3,3,4,4" it will NOT be "1,1,3,3,4,4"
+## Creates the draw pool table.  This table is acopy of the faces,  but may be modified durring
+## script exection.  If faces are removed from the pool once drawn, like playing cards for example.
 function Create-DrawPool {
     param(
-        [Parameter(Mandatory=$true)]
-        [string[]]$PoolIn,
-        [string]$RemoveFace = ""
+        [string[]]$aryPoolIn
     )
 
-    #copy the existing array
     $aryPoolOut = @()
-    foreach($face in $PoolIn) {
-        #if Remove face is found don't add it, then change remove face to empty so no further matches are found
-        if($face -ne $RemoveFace) {
-            $aryPoolOut += $face
-        } else {
-            $RemoveFace = ""
-        }
+    foreach($face in $aryPoolIn) {
+        $aryPoolOut += $face
     }
-
 
     return $aryPoolOut
 
@@ -517,20 +484,18 @@ function Display-SummaryTable {
     #output the formatted line of data
 
     if($OrBetter) {
-        $outTableTitle = "Or Better Table"
+        $outTableTitle = "Or Better Summary Table"
     } elseif($OrMore) {
-        $outTableTitle = "Or More Table"
+        $outTableTitle = "Or More Summary Table"
     } elseif($ExactOcc) {
-        $outTableTitle = "Literal Occurance Table"
+        $outTableTitle = "Exact Occurance Summary Table"
     }
 
 
     write-host
     write-host "------------------------------------------------------------------------------" -ForegroundColor green
-    write-host "$outTableTitle           Possible restuls: $($script:resultID +1)"   -ForegroundColor green
+    write-host $outTableTitle -ForegroundColor green
     write-host "------------------------------------------------------------------------------" -ForegroundColor green
-#    Write-Host ($outFormat -f "","Result Cnt:",$($script:resultID +1))  
-
     write-host ($outFormat -f $outData) -ForegroundColor green
 
     #generate and out put one row of data for each row
@@ -577,10 +542,11 @@ function Display-ScenarioData {
     Write-Host ($outFormat -f "","Face Cnt:",$($($script:aryFaces).count)) 
     Write-Host ($outFormat -f "","Result Cnt:",$($script:resultID +1))  
     
-    if($systemName -ne "") {
-        Write-Host ($outFormat -f "","System:",$systemName)  
+    if($XWingAtt) {
+        Write-Host ($outFormat -f "","System:","XWing Attack Dice")  
+    } elseif($XWingDef) {
+        Write-Host ($outFormat -f "","System:","xWing Defence Dice")  
     }
-
 
     $runTime = $(Get-Date) - $startTime
     Write-Host ($outFormat -f "","Run Time:",$runTime)  
@@ -603,8 +569,7 @@ Create-SummaryTables
 
 ######################################
 # Processing
-$aryDrawPool = Create-DrawPool -PoolIn $aryFaces
-Generate-Result -DrawPool $aryDrawPool
+Generate-Result
 
 ######################################
 # Restuls
