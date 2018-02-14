@@ -432,7 +432,11 @@ function Display-SummaryTable {
     $outFormat = "{0,-1} "
     for($col=0; $col -lt $colCount;$col++) {
         $indexNum = $col +1
-        $outFormat = $outFormat + "{$indexNum,-6} "
+        if($col -eq 0) {
+            $outFormat = $outFormat + "{$indexNum,-12} "
+        } else {
+            $outFormat = $outFormat + "{$indexNum,-6} "
+        }
     }
 
     #output header row
@@ -484,28 +488,33 @@ function Display-SummaryTable {
 function Display-ScenarioData {
 
 
-    $outFormat = "{0,-1} {1,-12} {2,-20}"
+    $outFormat = "{0,-1} {1,-14} {2,-20}"
 
     Write-Host 
     write-host "------------------------------------------------------------------------------" -ForegroundColor green
     Write-Host "Scenario Data" -ForegroundColor Green
     write-host "------------------------------------------------------------------------------" -ForegroundColor green
-    Write-Host "  Nodes:      $NodeCount" 
-    Write-Host "  Faces:      $script:aryFaces"
 
-    Write-Host ($outFormat -f "","Nodes:",$NodeCount) -ForegroundColor blue
-    Write-Host ($outFormat -f "","Face Cnt:",$($($script:aryFaces).count)) -ForegroundColor blue
-    Write-Host ($outFormat -f "","Result Cnt:",$($script:resultID +1)) -ForegroundColor blue
+
+    Write-Host ($outFormat -f "","Nodes:",$NodeCount)  
+
+    $faceList = ""
+    foreach($face in $script:aryFaces) {
+        $faceList = $faceList + $face + " "
+    }
+    Write-Host ($outFormat -f "","Faces:",$faceList)  
+
+    Write-Host ($outFormat -f "","Face Cnt:",$($($script:aryFaces).count)) 
+    Write-Host ($outFormat -f "","Result Cnt:",$($script:resultID +1))  
     
-
     if($XWingAtt) {
-        Write-Host ($outFormat -f "","System:","XWing Attack Dice") -ForegroundColor blue
+        Write-Host ($outFormat -f "","System:","XWing Attack Dice")  
     } elseif($XWingDef) {
-        Write-Host ($outFormat -f "","System:","xWing Defence Dice") -ForegroundColor blue
+        Write-Host ($outFormat -f "","System:","xWing Defence Dice")  
     }
 
     $runTime = $(Get-Date) - $startTime
-    Write-Host ($outFormat -f "","Run Time:",$runTime) -ForegroundColor blue
+    Write-Host ($outFormat -f "","Run Time:",$runTime)  
 
 
 }
