@@ -102,16 +102,12 @@ param(
 $aryFaces = @()               #This array holds the value on each face of each node
 $aryUniqueFaces = @()         #This array is a list of the unique faces on each node
 $aryResult = @()              #This array is the current result
-$arySumExactOcc = @()         #
-$arySumOrBetter = @()         #
-$arySumOrMore = @()           #
-#$arySumExactTotal = @()       #
-#$arySumTotalOrBetter = @()    #
+#$arySumExactOcc = @()         #
+#$arySumOrBetter = @()         #
+#$arySumOrMore = @()           #
 
 #Variables
 $resultID = -1                #The current result
-$systemName =""               #The name of the system used if any
-$totalCount =0                #How many rows there are in the Math Arrays
 
 
 #Faces
@@ -238,35 +234,46 @@ function Create-OccuranceSummaryTables {
         }
     }
 }
+
+
+
 ##################################################################################################
-#xxx
+#
 function Create-MathSummaryTables {
 
-    #find lowest and highest values in the faces
-    [int]$lowestFace = $aryUniqueFaces[0]
-    [int]$highestFace = $aryUniqueFaces[0]
-    foreach($face in $aryUniqueFaces) {
-        if([int]$face -lt $lowestFace)  { $lowestFace  = [int]$face }
-        if([int]$face -gt $highestFace) { $highestFace = [int]$face }
+    #if not all faces are numeric then exit
+    if (!$NumericFaces) {
+        return
     }
 
-    #found the lowest and highest possible sums
-    $highestSum = $NodeCount * $highestFace
-    $lowestSum = $NodeCount * $lowestFace
-    $script:totalCount = $highestSum - $lowestSum +1
+    
+    #find highest and lowest numeric value on a face
+    [int]$highestFace = $aryUniqueFaces[0]
+    [int]$lowestSum = $aryUniqueFaces[0]
+    foreach($face in $aryUniqueFaces) {
+        if([int]$face -gt $highestFace) { $highestFace = [int]$face }
+        if([int]$face -lt $lowestSum) {$lowestSum = [int]$face }
+    }
 
-    #creat the tables for every possible value
-    $script:arySumExactTotal = New-Object 'object[,]' $script:totalCount,2
-    $script:arySumTotalOrBetter = New-Object 'object[,]' $script:totalCount,2
+
+
+    #found the highest and lowest possible sums
+    [int]$highestSum = $NodeCount * $highestFace
+    [int]$script:lowestTotal = $NodeCount * $lowestSum
+    
+    #create the tables 
+    $script:arySumExactTotal = New-Object 'object[,]' $($highestSum +1),2
+    $script:arySumTotalOrMore = New-Object 'object[,]' $($highestSum +1),2
 
     #fill arrays with initial values
-    for($i = 0; $i -lt $script:totalCount; $i++ ) {
+    $aryCount = $($script:arySumExactTotal).count /2
+    for($i = 0; $i -lt $aryCount; $i++ ) {
         #exact total array
-        $script:arySumExactTotal[$i,0] = $i + $lowestSum
+        $script:arySumExactTotal[$i,0] = $i
         $script:arySumExactTotal[$i,1] = 0
         #total or better array
-        $script:arySumTotalOrBetter[$i,0] = $i + $lowestSum
-        $script:arySumTotalOrBetter[$i,1] = 0
+        $script:arySumTotalOrMore[$i,0] = $i
+        $script:arySumTotalOrMore[$i,1] = 0
     }
 }
 
@@ -341,8 +348,37 @@ function Create-DrawPool {
 function Analyze-Restult {
     Analyze-RestultForExactOccurances
     Analyze-RestultForOrBetter
+    Analyze-ResultForMathValues
 
 }
+
+
+
+##################################################################################################
+#xxx
+function Analyze-ResultForMathValues {
+
+    #if not all faces are numeric then exit
+    if (!$NumericFaces) {
+        return
+    }
+
+    #calculate the total of all nodes
+    $total = 0
+    foreach ($node in $script:aryResult) {
+        $total = $total + [int]$node
+    }
+
+    #incriment the Exact value array
+    $script:arySumExactTotal[$total,1] = $script:arySumExactTotal[$total,1] +1
+
+    #incriment the or more array
+    for($i = $total; $i -ge $script:lowestTotal; $i-- ) {
+        $script:arySumTotalOrMore[$i,1] = $script:arySumTotalOrMore[$i,1] +1
+    }
+}
+
+
 
 
 ##################################################################################################
@@ -507,19 +543,26 @@ function Display-CurrentRestult {
 
 ##################################################################################################
 #Displays summary table for Math type tables
-#xxx
+#
 function Display-MathSummaryTable {
     param(
         [switch]$ExactTotal,
-        [switch]$TotalOrBetter
+        [switch]$TotalOrMore
     )
 
+    #if not all faces are numeric then exit
+    if (!$NumericFaces) {
+        return
+    }
+
+    $outFormat = "{0,-1} {1,-10} {2,-10}"
+    
 
     #output the formatted line of data
     if($ExactTotal) {
         $outTableTitle = "Exact Total"
         $outDescritption = "How many times an exact total (e.g. exacly 6) occurs."
-    } elseif($TotalOrBetter) {
+    } elseif($TotalOrMore) {
         $outTableTitle = "Total Or Better"
         $outDescritption = "How many times a total or better (e.g. 6 or more) occurs."
     }
@@ -530,16 +573,23 @@ function Display-MathSummaryTable {
     write-host ("{0,-40} Possible Results: {1,-10}" -f $outTableTitle, $($script:resultID +1)) -ForegroundColor green
     write-host "$outDescritption"   -ForegroundColor green
     write-host "------------------------------------------------------------------------------" -ForegroundColor green
+    write-host ($outFormat -f "","Total","Occ") 
+    
 
+    $arySize = $($script:arySumExactTotal).count /2
     if($ExactTotal){
-        for($i = 0; $i -lt $script:totalCount; $i++) {
-            write-host ("{0,-1} {1,-10} {2,-10}" -f "",$($arySumExactTotal[$i,0]), $($arySumExactTotal[$i,1])) 
+        for($i = 0; $i -lt $arySize; $i++) {
+            if(($arySumExactTotal[$i,1]) -gt 0) {
+                write-host ($outFormat -f "",$($arySumExactTotal[$i,0]), $($arySumExactTotal[$i,1])) 
+            }
         }
     }
 
-    if($TotalOrBetter){
-        for($i = 0; $i -lt $script:totalCount; $i++) {
-            write-host ("{0,-1} {1,-10} {2,-10}" -f "",$($arySumTotalOrBetter[$i,0]), $($arySumTotalOrBetter[$i,1])) 
+    if($TotalOrMore){
+        for($i = 0; $i -lt $arySize; $i++) {
+            if(($arySumTotalOrMore[$i,1]) -gt 0) {
+                write-host ($outFormat -f "",$($arySumTotalOrMore[$i,0]), $($arySumTotalOrMore[$i,1])) 
+            }
         }
     }
 }
@@ -707,12 +757,11 @@ Generate-Result -DrawPool $aryDrawPool
 ######################################
 # Restuls
 Display-ScenarioData
-#Display-OccurnaceSummaryTable -ExactOcc
-#Display-OccurnaceSummaryTable -OrMore
-#Display-OccurnaceSummaryTable -OrBetter
-
+Display-OccurnaceSummaryTable -ExactOcc
+Display-OccurnaceSummaryTable -OrMore
+Display-OccurnaceSummaryTable -OrBetter
 Display-MathSummaryTable -ExactTotal
-Display-MathSummaryTable -TotalOrBetter
+Display-MathSummaryTable -TotalOrMore
 
 
 
