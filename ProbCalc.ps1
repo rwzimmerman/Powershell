@@ -56,11 +56,9 @@
         Updated: Feb 2018
 
         To Do:
-        Add "Equivalent Faces" logic.  So heads is not better than tails or vice versa
         Add "reroll logic" allow for rerolls and caclute percentages after a reroll
-        add "summing logic" if all faces are numeric then add them to gether (e.g. 1,1,3 = 5)
         add "malifaux logic" account for red and black jokers.
-        add more built in systems like Malifaux, d4, d6, etc.
+        Add asymetrical dice support
 
 
         Array notes
@@ -86,9 +84,17 @@ param(
     [switch]$XWingDef,          #True if XWing defence dice are being used 
     [switch]$MalifauxSuited,    #
     [switch]$MalifauxUnsuited,  #
+    [switch]$d4,                #
     [switch]$d6,                #
+    [switch]$d8,                #
+    [switch]$d10,               #
+    [switch]$d12,               #
+    [switch]$d20,               #
     [switch]$Coin,              #
     [switch]$PlayingCards,      #True if a deck of playing cards are being used 
+    [switch]$NumericDice,       #True if the preset process for numeric dice should be used
+    [switch]$EquivalentFaces,   #True if the faces have the same relative value like two sides of a coin
+    [switch]$MalifuxJokers,     #True if Malfiaux joker logic should be applied
     [switch]$Example,           #
     [switch]$Test,              #Test Data
     [switch]$ShowDebug          #if true debuging data will be displayed when the script executes.
@@ -102,12 +108,20 @@ param(
 $aryFaces = @()               #This array holds the value on each face of each node
 $aryUniqueFaces = @()         #This array is a list of the unique faces on each node
 $aryResult = @()              #This array is the current result
-#$arySumExactOcc = @()         #
-#$arySumOrBetter = @()         #
-#$arySumOrMore = @()           #
+#$aryExactlyXTable = @()         #
+#$aryExactXOrMoreTable = @()           #
+#$aryOrBetterTable = @()         #
+#$aryExactSumTable = @()         #
+#$arySumOrMoreTable = @()         #
+#$aryHighFaceTable = @()         #
+#$aryLowFaceTable = @()         #
 
 #Variables
 $resultID = -1                #The current result
+$showProcessing = $false       #True if processing info should be displayed to the screen
+$showExacltyX = $false         #If true the Exaclty X table will be shown.  It is primarily for debugging.
+
+
 
 
 #Faces
@@ -124,22 +138,49 @@ if($Faces.count -ne 0) {
 }elseif($MalifauxUnsuited) {
     $systemName = "Malifaux Unsuited Cards"
     $ExhaustFaces=$true
+    $MalifuxJokers=$true
     $aryFaces = @("BJ","1","1","1","1","2","2","2","2","3","3","3","3","4","4","4","4",`
                   "5","5","5","5","6","6","6","6","7","7","7","7","8","8","8","8","9","9","9","9", `
                   "10","10","10","10","11","11","11","11","12","12","12","12","13","13","13","13","RJ")
-}elseif($MalifauxSuited) {
+}elseif($MalifauxSuitedBAK) {
     $systemName = "Malifaux Sited Cards"
+    $ExhaustFaces=$true
+    $MalifuxJokers=$true
     $aryFaces = @()
-    for($i = 1; $i -le 39; $i++) {
+    for($i = 1; $i -le 1; $i++) {
         $aryFaces += "NA"
     }
     $aryFaces += @("BJ","1","2","3","4","5","6","7","8","9","10","11","12","13","RJ")
+}elseif($MalifauxSuited) {
+    $systemName = "Malifaux Sited Cards"
+    $ExhaustFaces=$true
+    $MalifuxJokers=$true
+    $aryFaces = @()
+    $aryFaces += @("BJ","1","2","3","RJ")
+}elseif($d4) {
+    $systemName = "d4"
+    $NumericDice=$true
+    $aryFaces = @(1,2,3,4)
 }elseif($d6) {
     $systemName = "d6"
-    $ExhaustFaces=$false
-    $NumericFaces=$true
-    $aryFaces = @("1","2","3","4","5","6")
-    $aryFaces = @("2","4","6","8","10","12")
+    $NumericDice=$true
+    $aryFaces = @(1,2,3,4,5,6)
+}elseif($d8) {
+    $systemName = "d8"
+    $NumericDice=$true
+    $aryFaces = @(1,2,3,4,5,6,7,8)
+}elseif($d10) {
+    $systemName = "d10"
+    $NumericDice=$true
+    $aryFaces = @(1,2,3,4,5,6,7,8,9,10)
+}elseif($d12) {
+    $systemName = "d12"
+    $NumericDice=$true
+    $aryFaces = @(1,2,3,4,5,6,7,8,9,10,11,12)
+}elseif($d20) {
+    $systemName = "d20"
+    $NumericDice=$true
+    $aryFaces = @(1,2,3,4,5,6,7,8,9,10,11,1213,14,15,16,17,18,19,20)
 }elseif($Coin) {
     $systemName = "Coin"
     $ExhaustFaces=$false
@@ -154,6 +195,23 @@ if($Faces.count -ne 0) {
     $aryFaces = @("Blank","Blank","Focus","Focus","Hit","Hit","Hit","Crit")
 }else{
     $aryFaces = @("Heads","Tails")
+}
+
+
+#set up the typical dispaly for numeric dice (d6, d12, etc...)
+if($NumericDice) {
+    $ExhaustFaces=$false
+    $NumericFaces=$true
+    $EquivalentFaces=$false
+    $MalifuxJokers=$false
+}
+
+#set up processing and display for coins
+if($Coin) {
+    $ExhaustFaces=$false
+    $NumericFaces=$false
+    $EquivalentFaces=$true
+    $MalifuxJokers=$false
 }
 
 
@@ -174,6 +232,8 @@ $estResultCount = [math]::pow($aryFaces.count,$NodeCount)
 ##################################################################################################
 # Initializes the result array giving it the prober number of elements
 function Create-RestultArray {
+    
+    if($showProcessing) {write-host "  Create-RestultArray" -ForegroundColor green }
 
     for($i = 1; $i -le $NodeCount; $i++) {
         $script:aryResult += "empty"
@@ -184,6 +244,8 @@ function Create-RestultArray {
 ## Create a table containing a list of each unique face
 function Create-UniqueFacessTable {
     
+    if($showProcessing) {write-host "  Create-UniqueFacessTable" -ForegroundColor green }
+
     #step through each face in the faces array
     foreach($face in $script:aryFaces) {
 
@@ -210,11 +272,15 @@ function Create-UniqueFacessTable {
 ## Create summary tables for counting occurnaces.
 function Create-OccuranceSummaryTables {
 
+    if($showProcessing) {write-host "  Create-OccuranceSummaryTables" -ForegroundColor green }
+    
     #creat the Exact and OrBetter summary arrays
     $faceCount = $script:aryUniqueFaces.count
-    $script:arySumExactOcc = New-Object 'object[,]' $faceCount,$([int]$NodeCount+1)
-    $script:arySumOrBetter = New-Object 'object[,]' $faceCount,$([int]$NodeCount+1)
-    $script:arySumOrMore = New-Object 'object[,]' $faceCount,$([int]$NodeCount+1)
+    $script:aryExactlyXTable = New-Object 'object[,]' $faceCount,$([int]$NodeCount+1)
+    $script:aryOrBetterTable = New-Object 'object[,]' $faceCount,$([int]$NodeCount+1)
+    $script:aryExactXOrMoreTable = New-Object 'object[,]' $faceCount,$([int]$NodeCount+1)
+    $script:aryHighFaceTable = New-Object 'object[,]' $faceCount,$([int]$NodeCount+1)
+    $script:aryLowFaceTable = New-Object 'object[,]' $faceCount,$([int]$NodeCount+1)
 
 
     #get row and column sizes
@@ -223,17 +289,23 @@ function Create-OccuranceSummaryTables {
     
     #put the face name in the 0 element in the array
     for($row = 0; $row -lt ($script:aryUniqueFaces).count; $row++) {
-        $arySumExactOcc[$row,0] = $script:aryUniqueFaces[$row]
-        $arySumOrBetter[$row,0] = $script:aryUniqueFaces[$row]
-        $arySumOrMore[$row,0] = $script:aryUniqueFaces[$row]
+        $aryExactlyXTable[$row,0] = $script:aryUniqueFaces[$row]
+        $aryOrBetterTable[$row,0] = $script:aryUniqueFaces[$row]
+        $aryHighFaceTable[$row,0] = $script:aryUniqueFaces[$row]
+        $aryLowFaceTable[$row,0] = $script:aryUniqueFaces[$row]
         #zero the rest of the values in the arrays
         for($col = 1; $col -le $([int]$NodeCount); $col++) {
-            $arySumExactOcc[$row,$col] = 0
-            $arySumOrBetter[$row,$col] = 0
-            $arySumOrMOre[$row,$col] = 0
+            $aryExactlyXTable[$row,$col] = 0
+            $aryOrBetterTable[$row,$col] = 0
+            $aryExactXOrMoreTable[$row,$col] = 0
+            $aryHighFaceTable[$row,$col] = 0
+            $aryLowFaceTable[$row,$col] = 0
         }
     }
 }
+
+
+
 
 
 
@@ -241,39 +313,39 @@ function Create-OccuranceSummaryTables {
 #
 function Create-MathSummaryTables {
 
+
     #if not all faces are numeric then exit
     if (!$NumericFaces) {
         return
     }
 
+    if($showProcessing) {write-host "  Create-MathSummaryTables" -ForegroundColor green }
     
     #find highest and lowest numeric value on a face
     [int]$highestFace = $aryUniqueFaces[0]
-    [int]$lowestSum = $aryUniqueFaces[0]
+    [int]$LowestFace = $aryUniqueFaces[0]
     foreach($face in $aryUniqueFaces) {
         if([int]$face -gt $highestFace) { $highestFace = [int]$face }
-        if([int]$face -lt $lowestSum) {$lowestSum = [int]$face }
+        if([int]$face -lt $LowestFace) {$LowestFace = [int]$face }
     }
-
-
 
     #found the highest and lowest possible sums
     [int]$highestSum = $NodeCount * $highestFace
-    [int]$script:lowestTotal = $NodeCount * $lowestSum
+    [int]$script:lowestTotal = $NodeCount * $LowestFace
     
     #create the tables 
-    $script:arySumExactTotal = New-Object 'object[,]' $($highestSum +1),2
-    $script:arySumTotalOrMore = New-Object 'object[,]' $($highestSum +1),2
+    $script:aryExactSumTable = New-Object 'object[,]' $($highestSum +1),2
+    $script:arySumOrMoreTable = New-Object 'object[,]' $($highestSum +1),2
 
     #fill arrays with initial values
-    $aryCount = $($script:arySumExactTotal).count /2
+    $aryCount = $($script:aryExactSumTable).count /2
     for($i = 0; $i -lt $aryCount; $i++ ) {
         #exact total array
-        $script:arySumExactTotal[$i,0] = $i
-        $script:arySumExactTotal[$i,1] = 0
+        $script:aryExactSumTable[$i,0] = $i
+        $script:aryExactSumTable[$i,1] = 0
         #total or better array
-        $script:arySumTotalOrMore[$i,0] = $i
-        $script:arySumTotalOrMore[$i,1] = 0
+        $script:arySumOrMoreTable[$i,0] = $i
+        $script:arySumOrMoreTable[$i,1] = 0
     }
 }
 
@@ -291,7 +363,6 @@ function Generate-Result {
         [Parameter(Mandatory=$true)]
         [string[]]$DrawPool
     )
-
 
     foreach($face in $DrawPool ) {
         $script:aryResult[$nodeNum -1] = $face
@@ -346,22 +417,25 @@ function Create-DrawPool {
 #Looks at the current result and writes data to the summary tables
 
 function Analyze-Restult {
-    Analyze-RestultForExactOccurances
+    Analyze-RestultForExactlyX
     Analyze-RestultForOrBetter
     Analyze-ResultForMathValues
+    Analyze-RestultForHighAndLowFace
+    if($showProcessing) {write-host ""}
 
 }
 
 
 
 ##################################################################################################
-#xxx
 function Analyze-ResultForMathValues {
 
     #if not all faces are numeric then exit
     if (!$NumericFaces) {
         return
     }
+
+    if($showProcessing) {write-host "  Analyze-ResultForMathValues" -ForegroundColor green }
 
     #calculate the total of all nodes
     $total = 0
@@ -370,12 +444,9 @@ function Analyze-ResultForMathValues {
     }
 
     #incriment the Exact value array
-    $script:arySumExactTotal[$total,1] = $script:arySumExactTotal[$total,1] +1
-
-    #incriment the or more array
-    for($i = $total; $i -ge $script:lowestTotal; $i-- ) {
-        $script:arySumTotalOrMore[$i,1] = $script:arySumTotalOrMore[$i,1] +1
-    }
+    $script:aryExactSumTable[$total,1] = $script:aryExactSumTable[$total,1] +1
+    $script:arySumOrMoreTable[$total,1] = $script:arySumOrMoreTable[$total,1] +1
+    
 }
 
 
@@ -384,9 +455,10 @@ function Analyze-ResultForMathValues {
 ##################################################################################################
 #Looks at the current result and writes data to the exact occurance table
 #An exact occurance would be how many times do exaclty two 6' occure.
-function Analyze-RestultForExactOccurances {
+function Analyze-RestultForExactlyX {
 
-
+    if($showProcessing) {write-host "  Analyze-RestultForExactlyX" -ForegroundColor green }
+    
     foreach ($face in $script:aryUniqueFaces){
         $occurances = 0
         foreach ($node in $script:aryResult) {
@@ -395,21 +467,23 @@ function Analyze-RestultForExactOccurances {
             }
         }
         if($occurances -gt 0) {
-            #write-host "    Analyze-RestultForExactOccurances:  $occurances $face"
             #update the exact occurnace array
-            Incriment-SummaryArray -FaceName $face -Occurnaces $occurances -ExactOcc
-            Incriment-SummaryArray -FaceName $face -Occurnaces $occurances -OrMore
+            Incriment-SummaryArray -FaceName $face -Occurnaces $occurances -ExactlyX
         }
     }
 }
 
 
+
+
+
 ##################################################################################################
-#Looks at the current result and writes data to the 'or better' table
-#An 'or better' occurance would be how many times would you draws two sixes or better.
-function Analyze-RestultForOrBetter {
+#Looks at the current result and writes data to the 'X or better' table
+#This is the first step in the table the coumns need to be summed for
+#that data to be meaniningful
+function Analyze-RestultForHighAndLowFace {
 
-
+    if($showProcessing) {write-host "  Analyze-RestultForOrBetter" -ForegroundColor green }
 
     #Create a copy of the current result and convert the faces to numbers
     $aryResultAsRows = @()
@@ -419,28 +493,161 @@ function Analyze-RestultForOrBetter {
     }
 
     #sort the array so lowest result is first
-    $aryResultAsRowsSorted = $aryResultAsRows | Sort-Object -Descending
+    $aryResultAsRowsSorted = $aryResultAsRows | Sort-Object 
+    #the number of columns in the result
+    $colCount = $aryResultAsRowsSorted.count
 
-    for($i = 0; $i -lt $aryResultAsRowsSorted.count; $i++) {
-        $faceName = Convert-RowToFace -RowNumber $aryResultAsRowsSorted[$i]
-        $occ = $i + 1
-        Incriment-SummaryArray -FaceName $faceName -Occurnaces $occ -OrBetter
+
+    #If Malifaux Jokers are in effect then proccess
+    if($MalifuxJokers) {
+        #check to see if there are any black jokers
+        #if so both highest and lowest result is a black joker
+        for($i = 0; $i -lt $script:aryResult.count; $i++) {
+            #write-host "$($script:aryResult[$i])" -ForegroundColor red
+            if($($script:aryResult[$i]) -eq "BJ") {
+                Incriment-SummaryArray -FaceName "BJ" -Occurnaces 1 -LowFace
+                Incriment-SummaryArray -FaceName "BJ" -Occurnaces 1 -HighFace
+                return
+                #return both high and lowest cards are BJ so no need to continue
+            }
+        }
+        #if there are no black jokers then 
+        #check to see if there are any red jokers
+        #if so both highest and lowest result is a red joker
+        for($i = 0; $i -lt $script:aryResult.count; $i++) {
+            #write-host "$($script:aryResult[$i])" -ForegroundColor red
+            if($($script:aryResult[$i]) -eq "RJ") {
+                Incriment-SummaryArray -FaceName "RJ" -Occurnaces 1 -LowFace
+                Incriment-SummaryArray -FaceName "RJ" -Occurnaces 1 -HighFace
+                return
+                #return both high and lowest cards are RJ so no need to continue
+            }
+        }
+    }
+
+
+    #xxx
+    #write the lowest faces to the lowface table
+    #$lowFace = $aryResultAsRowsSorted[0] 
+    $faceName = Convert-RowToFace -RowNumber $aryResultAsRowsSorted[0]
+    Incriment-SummaryArray -FaceName $faceName -Occurnaces 1 -LowFace
+
+
+    #write the highest faces to the hightface table
+    #$highFace = $aryResultAsRowsSorted[$colCount -1] 
+    $faceName = Convert-RowToFace -RowNumber $aryResultAsRowsSorted[$colCount -1]
+    Incriment-SummaryArray -FaceName $faceName -Occurnaces 1 -highFace
+
+
+
+}
+
+
+##################################################################################################
+#Looks at the current result and writes data to the 'X or better' table
+#This is the first step in the table the coumns need to be summed for
+#that data to be meaniningful
+function Analyze-RestultForOrBetter {
+
+    if($showProcessing) {write-host "  Analyze-RestultForOrBetter" -ForegroundColor green }
+
+    #Create a copy of the current result and convert the faces to numbers
+    $aryResultAsRows = @()
+    for($i = 0; $i -lt $script:aryResult.count; $i++) {
+        $row = Convert-FaceToRow -FaceName $script:aryResult[$i]
+        $aryResultAsRows += $row
+    }
+
+    #sort the array so lowest result is first
+    $aryResultAsRowsSorted = $aryResultAsRows | Sort-Object 
+    #the number of columns in the result
+    $colCount = $aryResultAsRowsSorted.count
+    #step throuch each column
+    for($col = 0; $col -lt $colCount; $col++) {
+        #the number of nodes that have this value or better are the currnt node
+        #plus any nodes left to evaluate, since the result has been sorted in
+        #ascending order any values left must be of an equal or higher value.
+        $quant = ($colCount) - $col
+        $faceName = Convert-RowToFace -RowNumber $aryResultAsRowsSorted[$col]
+        Incriment-SummaryArray -FaceName $faceName -Occurnaces $quant -OrBetter
     }
 }
 
 
 ##################################################################################################
-## If not all faces in the face array are numberic then disable numeric processing.
-function Confirm-FacesAreNumeric {
-    foreach($face in $script:aryUniqueFaces) {
-        if(isNumeric $face) {
-        } else {
-            $script:NumericFaces = $false
-            break
+# Uses the raw data in the table to calculate the complete "or better" vlaues in the table
+function Calculate-OrBetterTable {
+
+    if($showProcessing) {write-host "  Calculate-OrBetterTable" -ForegroundColor green }
+
+    #step through each colum
+    for($col = 1; $col -le $NodeCount; $col++) {
+        #Step through each row in the column from lowest value to highest
+        for($row = 0; $row -le $script:aryUniqueFaces.count; $row++) {
+            #add the values of all the higher value results to this result
+            for($shortRow = $row +1; $shortRow -le $script:aryUniqueFaces.count; $shortRow++) {
+                $script:aryOrBetterTable[$Row,$col] = $script:aryOrBetterTable[$Row,$col] + $($script:aryOrBetterTable[$shortRow,$col])
+            }
         }
     }
 }
 
+
+
+##################################################################################################
+#
+function Calculate-SumOrMoreTable {
+
+    #if not all faces are numeric then exit
+    if (!$NumericFaces) {
+        return
+    }
+
+    if($showProcessing) {write-host "  Calculate-SumOrMoreTable" -ForegroundColor green }
+
+    $CountColumn = 1         #The column holding the number of matchinc occurances
+
+    #get the number of rows to process
+    $rowCount = $script:arySumOrMoreTable.Count /2
+
+    #Step through each row
+    for($row = 0; $row -le $rowCount; $row++) {
+        #Step through each row after the current row
+        for($shortRow = $row +1; $shortRow -le $rowCount; $shortRow++) {
+            #If the current row's total is more than 0 then all higher results to this occurance total since they are "more"
+            #IF the current row's total is 0 then is is not a possible result and should stay at 0 occurances
+            if ($script:arySumOrMoreTable[$Row,$CountColumn] -gt 0) {
+               $script:arySumOrMoreTable[$Row,$CountColumn] = $script:arySumOrMoreTable[$Row,$CountColumn] + $($script:arySumOrMoreTable[$shortRow,$CountColumn])
+            }
+        }
+    }
+}
+
+
+
+
+
+
+##################################################################################################
+#
+function Calculate-ExactXOrMoreTable{
+
+    if($showProcessing) {write-host "  Calculate-ExactXOrMoreTable" -ForegroundColor green }
+
+    #step through each row
+    for($row=0; $row -lt $($script:aryUniqueFaces.count); $row++) {
+        #step through each node count in that row
+        for($col=1; $col -le $NodeCount; $col++) {
+            [int]$rowSum = 0
+            #total the node value for the current column and the columns to the right of that cloumn
+            for($shortCol=$col; $shortCol -le $NodeCount; $shortCol++) {
+                $rowSum = $rowSum + $aryExactlyXTable[$row,$shortCol]
+            }
+            #save the total to the Exact or more table
+            $aryExactXOrMoreTable[$row,$col] = $rowSum
+        }
+    }
+}
 
 
 
@@ -450,9 +657,10 @@ function Incriment-SummaryArray {
     param(
         [string]$FaceName,            #the name of the face to incriment
         [int]$Occurnaces,             #the number of times the face occured
-        [switch]$ExactOcc,            #true if the Exact Occurnaces array shoud be updated
-        [switch]$OrBetter,             #true if the Or Better array shoud be updated
-        [switch]$OrMore             #true if the Or Better array shoud be updated
+        [switch]$ExactlyX,            #true if the Exact Occurnaces array shoud be updated
+        [switch]$OrBetter,            #true if the Or Better array shoud be updated
+        [switch]$HighFace,            #true if the HighFace array shoud be updated
+        [switch]$LowFace              #true if the LowFce array shoud be updated
     )
 
     #the row and column to update
@@ -460,57 +668,23 @@ function Incriment-SummaryArray {
     $col = $Occurnaces
 
     #update arrays
-    if ($ExactOcc) {
-        $script:arySumExactOcc[$row,$col] = $script:arySumExactOcc[$row,$col] +1
-    }
+    if ($ExactlyX) {
+        $script:aryExactlyXTable[$row,$col] = $script:aryExactlyXTable[$row,$col] +1
+    } elseif ($OrBetter) {
+        $script:aryOrBetterTable[$row,$col] = $script:aryOrBetterTable[$row,$col] +1
+    } elseif ($HighFace) {
+        $script:aryHighFaceTable[$row,$col] = $script:aryHighFaceTable[$row,$col] +1
+    } elseif ($LowFace) {
+        $script:aryLowFaceTable[$row,$col] = $($script:aryLowFaceTable[$row,$col] +1)
+    } 
 
-    if ($OrMore) {
-        for($i = 1; $i -le $col; $i++) {
-            $script:arySumOrMore[$row,$i] = $script:arySumOrMore[$row,$i] +1
-        }
-    }
 
-    if ($OrBetter) {
-        for($i = $row; $i -ge 0; $i--) {
-            $script:arySumOrBetter[$i,$col] = $script:arySumOrBetter[$i,$col] +1
-        }
-    }
+
+
 }
 
 
 
-
-##################################################################################################
-#Returns the row number of a given face value
-function Convert-FaceToRow {
-    param(
-        [Parameter(Mandatory=$true)]
-        [string]$FaceName            #the name of the face to find
-    )
-
-    $rowCount = $($script:aryUniqueFaces).count -1
-    for($row = $rowCount; $row -ge 0;$row--) {
-        $colFace = $script:arySumOrBetter[$row,0]
-        if ($FaceName -eq $colFace) {
-            $returnRow = $row
-            #write-host "    Convert-FaceToRow                   $FaceName Row: $returnRow"
-            return $returnRow
-            break
-        }
-    }
-}
-
-##################################################################################################
-#Returns the face name of a given row number
-function Convert-RowToFace {
-    param(
-        [Parameter(Mandatory=$true)]
-        [int]$RowNumber            #the number of the row to find
-    )
-
-    $returnFace = $script:aryUniqueFaces[$RowNumber]
-    return $returnFace
-}
 
 
 
@@ -534,13 +708,6 @@ function Display-CurrentRestult {
         Write-host $output -ForegroundColor Yellow
     }
     
-
-    
-
-
-
-
-
 ##################################################################################################
 #Displays summary table for Math type tables
 #
@@ -560,35 +727,35 @@ function Display-MathSummaryTable {
 
     #output the formatted line of data
     if($ExactTotal) {
-        $outTableTitle = "Exact Total"
-        $outDescritption = "How many times an exact total (e.g. exacly 6) occurs."
+        $outTableTitle = "Exact Sum"
+        $outDescritption = "How many times sum of the dice is exactly X (e.g. the dice sum to exacly 6)."
     } elseif($TotalOrMore) {
-        $outTableTitle = "Total Or Better"
-        $outDescritption = "How many times a total or better (e.g. 6 or more) occurs."
+        $outTableTitle = "Sum Or Better"
+        $outDescritption = "How many times sum of the dice is X or more (e.g. the dice sum to 6+)."
     }
 
 
     write-host
     write-host "------------------------------------------------------------------------------" -ForegroundColor green
-    write-host ("{0,-40} Possible Results: {1,-10}" -f $outTableTitle, $($script:resultID +1)) -ForegroundColor green
+    write-host "$outTableTitle ($($script:resultID +1) Possible Outcomes)" -ForegroundColor green
     write-host "$outDescritption"   -ForegroundColor green
     write-host "------------------------------------------------------------------------------" -ForegroundColor green
     write-host ($outFormat -f "","Total","Occ") 
     
 
-    $arySize = $($script:arySumExactTotal).count /2
+    $arySize = $($script:aryExactSumTable).count /2
     if($ExactTotal){
         for($i = 0; $i -lt $arySize; $i++) {
-            if(($arySumExactTotal[$i,1]) -gt 0) {
-                write-host ($outFormat -f "",$($arySumExactTotal[$i,0]), $($arySumExactTotal[$i,1])) 
+            if(($aryExactSumTable[$i,1]) -gt 0) {
+                write-host ($outFormat -f "",$($aryExactSumTable[$i,0]), $($aryExactSumTable[$i,1])) 
             }
         }
     }
 
     if($TotalOrMore){
         for($i = 0; $i -lt $arySize; $i++) {
-            if(($arySumTotalOrMore[$i,1]) -gt 0) {
-                write-host ($outFormat -f "",$($arySumTotalOrMore[$i,0]), $($arySumTotalOrMore[$i,1])) 
+            if(($arySumOrMoreTable[$i,1]) -gt 0) {
+                write-host ($outFormat -f "",$($arySumOrMoreTable[$i,0]), $($arySumOrMoreTable[$i,1])) 
             }
         }
     }
@@ -596,22 +763,22 @@ function Display-MathSummaryTable {
 
 
 
-
-
 ##################################################################################################
 #Displays summary table for Occurnace type tables
 function Display-OccurnaceSummaryTable {
     param(
-        [switch]$OrBetter,             #True if the OrBetter table should be displayed
-        [switch]$OrMore,               #True if the OrMore table should be displayed
-        [switch]$ExactOcc              #True if the Exact Occurnaces table should be displayed
+        [switch]$ExactlyX,              #True if the Exact Occurnaces table should be displayed
+        [switch]$ExactXOrMore,               #True if the ExactXOrMore table should be displayed
+        [switch]$XOrBetter,             #True if the OrBetter table should be displayed
+        [switch]$HighestFace,          #True if the OrBetter table should be displayed
+        [switch]$LowestFace             #True if the OrBetter table should be displayed
     )
 
 
-    #if neither switch is true display nothing
-    if(!$OrBetter -and !$OrMore -and !$ExactOcc) {
-        return
-    }
+    #if this switch is not true do not display this table.  Its mostly for debugging
+    if(!$showExacltyX -and $ExactlyX) {return}
+    #if no switch is true display nothing
+    if(!$XOrBetter -and !$ExactXOrMore -and !$ExactlyX -and !$HighestFace -and !$LowestFace) {return}
 
     $rowCount = $($script:aryUniqueFaces).count
     $colCount = $NodeCount +1
@@ -629,7 +796,39 @@ function Display-OccurnaceSummaryTable {
         }
     }
 
-    #output header row
+    #output the formatted line of data
+    if($ExactlyX) {
+        $outTableTitle = "Exactly X"
+        $outDescritption = "How many times a face occurs exactly X times (e.g. exacly two 3's)."
+        $outDescritption2 = "Mostly good for debugging and confirming the algorythms are functioning properly."
+    } elseif($ExactXOrMore) {
+        $outTableTitle = "Exactly X Or More"
+        $outDescritption = "How many times a face occurs X times or more (e.g. two or more 3's)."
+        $outDescritption2 = "Good for coin flips and game like Yahtee, where the exact value of the node is important."
+    } elseif($XOrBetter) {
+        $outTableTitle = "X Or Better"
+        $outDescritption = "How many times a face or better occurs X times or more (e.g. 2 or more 3+'s )."
+        $outDescritption2 = "Good for dice pools like X-Wing where Hits and Crits (and maybe Focuses) damage ships."
+    } elseif($HighestFace) {
+        $outTableTitle = "HighestFace"
+        $outDescritption = "HighestFace"
+        $outDescritption2 = "HighestFace"
+    } elseif($LowestFace) {
+        $outTableTitle = "LowestFace"
+        $outDescritption = "LowestFace"
+        $outDescritption2 = "LowestFace"
+    }
+
+
+    write-host
+    write-host "------------------------------------------------------------------------------" -ForegroundColor green
+    write-host "$outTableTitle ($($script:resultID +1) Possible Outcomes)" -ForegroundColor green
+    write-host "$outDescritption"   -ForegroundColor green
+    write-host "$outDescritption2"   -ForegroundColor green
+    write-host "------------------------------------------------------------------------------" -ForegroundColor green
+
+
+    #output header rows
     $outData = @()     #initialize the data array to output the data
     $outData += ""
     for($col=0; $col -lt $colCount;$col++) {
@@ -639,38 +838,24 @@ function Display-OccurnaceSummaryTable {
             $outData += $col
         }
     }
-    
-    #output the formatted line of data
-    if($OrBetter) {
-        $outTableTitle = "Occurances Or Better"
-        $outDescritption = "How many times a number or more of a face or better (e.g. 2 or more three pluses) occurs."
-    } elseif($OrMore) {
-        $outTableTitle = "Occurances Or More"
-        $outDescritption = "How many times a number or more of a face (e.g. 2 or more three's) occurs."
-    } elseif($ExactOcc) {
-        $outTableTitle = "Exact Occurances"
-        $outDescritption = "How many times an exact number of a face (e.g. exacly 2 three's) occurs."
-    }
-
-
-    write-host
-    write-host "------------------------------------------------------------------------------" -ForegroundColor green
-    write-host ("{0,-40} Possible Results: {1,-10}" -f $outTableTitle, $($script:resultID +1)) -ForegroundColor green
-    write-host "$outDescritption"   -ForegroundColor green
-    write-host "------------------------------------------------------------------------------" -ForegroundColor green
+    write-host ("               Occurnaces") -ForegroundColor green
     write-host ($outFormat -f $outData) -ForegroundColor green
 
-    #generate and out put one row of data for each row
+    #generate and output one row of data for each row
     for($row=0; $row -lt $rowCount;$row++) {
         $outData = @()     #initialize the data array to output the data
         $outData += ""
         for($col=0; $col -lt $colCount;$col++) {
-            if($OrBetter) {
-                $outData += $script:arySumOrBetter[$row,$col]
-            } elseif($OrMore) {
-                $outData += $script:arySumOrMore[$row,$col]
-            } elseif($ExactOcc) {
-                $outData += $script:arySumExactOcc[$row,$col]
+            if($XOrBetter) {
+                $outData += $script:aryOrBetterTable[$row,$col]
+            } elseif($ExactXOrMore) {
+                $outData += $script:aryExactXOrMoreTable[$row,$col]
+            } elseif($ExactlyX) {
+                $outData += $script:aryExactlyXTable[$row,$col]
+            } elseif($LowestFace) {
+                $outData += $script:aryLowFaceTable[$row,$col]
+            } elseif($HighestFace) {
+                $outData += $script:aryHighFaceTable[$row,$col]
             }
         }
         #output the formatted line of data
@@ -722,6 +907,56 @@ function Display-ScenarioData {
 ##################################################################################################
 
 
+##################################################################################################
+#Returns the row number of a given face value
+function Convert-FaceToRow {
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$FaceName            #the name of the face to find
+    )
+
+    $rowCount = $($script:aryUniqueFaces).count -1
+    for($row = $rowCount; $row -ge 0;$row--) {
+        $colFace = $script:aryOrBetterTable[$row,0]
+        if ($FaceName -eq $colFace) {
+            $returnRow = $row
+            #write-host "    Convert-FaceToRow                   $FaceName Row: $returnRow"
+            return $returnRow
+            break
+        }
+    }
+}
+
+##################################################################################################
+#Returns the face name of a given row number
+function Convert-RowToFace {
+    param(
+        [Parameter(Mandatory=$true)]
+        [int]$RowNumber            #the number of the row to find
+    )
+
+    $returnFace = $script:aryUniqueFaces[$RowNumber]
+    return $returnFace
+}
+
+
+
+
+##################################################################################################
+## If not all faces in the face array are numberic then disable numeric processing.
+function Confirm-FacesAreNumeric {
+    foreach($face in $script:aryUniqueFaces) {
+        if(isNumeric $face) {
+        } else {
+            $script:NumericFaces = $false
+            break
+        }
+    }
+}
+
+
+
+
 ######################################
 # Determine if a string is numeric
 function isNumeric ($x) {
@@ -740,6 +975,17 @@ function isNumeric ($x) {
 
 ######################################
 # Setup
+write-host
+write-host
+write-host
+write-host
+write-host
+write-host
+write-host
+write-host
+if($showProcessing) {write-host "" -ForegroundColor green }
+if($showProcessing) {write-host "Setup Started" -ForegroundColor green }
+
 $startTime = Get-Date
 Create-RestultArray
 Create-UniqueFacessTable
@@ -751,15 +997,24 @@ Create-MathSummaryTables
 
 ######################################
 # Processing
+if($showProcessing) {write-host "" -ForegroundColor green }
+if($showProcessing) {write-host "Processing Started" -ForegroundColor green }
 $aryDrawPool = Create-DrawPool -PoolIn $aryFaces
 Generate-Result -DrawPool $aryDrawPool
+Calculate-ExactXOrMoreTable
+Calculate-OrBetterTable
+Calculate-SumOrMoreTable
 
 ######################################
 # Restuls
+if($showProcessing) {write-host "" -ForegroundColor green }
+if($showProcessing) {write-host "Display Started" -ForegroundColor green }
 Display-ScenarioData
-Display-OccurnaceSummaryTable -ExactOcc
-Display-OccurnaceSummaryTable -OrMore
-Display-OccurnaceSummaryTable -OrBetter
+Display-OccurnaceSummaryTable -ExactlyX
+Display-OccurnaceSummaryTable -ExactXOrMore
+Display-OccurnaceSummaryTable -XOrBetter
+Display-OccurnaceSummaryTable -LowestFace
+Display-OccurnaceSummaryTable -HighestFace
 Display-MathSummaryTable -ExactTotal
 Display-MathSummaryTable -TotalOrMore
 
