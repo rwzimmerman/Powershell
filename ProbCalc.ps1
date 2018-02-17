@@ -76,142 +76,125 @@
 
 
 param(
-    [int]$NodeCount=2,          #the number of elements in the randomization (e.g. 3 cards, 2 dice, etc.)
-    [string[]]$Faces,           #
-    [switch]$ExhaustFaces,      #
-    [switch]$NumericFaces,      #True if all faces are numeric.
-    [switch]$XWingAtt,          #True if XWing attack dice are being used 
-    [switch]$XWingDef,          #True if XWing defence dice are being used 
-    [switch]$MalifauxSuited,    #
-    [switch]$MalifauxUnsuited,  #
-    [switch]$d4,                #
-    [switch]$d6,                #
-    [switch]$d8,                #
-    [switch]$d10,               #
-    [switch]$d12,               #
-    [switch]$d20,               #
-    [switch]$Coin,              #
-    [switch]$PlayingCards,      #True if a deck of playing cards are being used 
-    [switch]$NumericDice,       #True if the preset process for numeric dice should be used
-    [switch]$EquivalentFaces,   #True if the faces have the same relative value like two sides of a coin
-    [switch]$MalifuxJokers,     #True if Malfiaux joker logic should be applied
-    [switch]$Example,           #
-    [switch]$Test,              #Test Data
-    [switch]$ShowDebug          #if true debuging data will be displayed when the script executes.
-
+    [int]$NodeCount=2,              #the number of elements in the randomization (e.g. 3 cards, 2 dice, etc.)
+    #Systems
+    [switch]$XWingAtt,              #True if XWing attack dice are being used 
+    [switch]$XWingDef,              #True if XWing defence dice are being used 
+    [switch]$MalifauxSuited,        #
+    [switch]$MalifauxUnsuited,      #
+    [switch]$d4,                    #
+    [switch]$d6,                    #
+    [switch]$d8,                    #
+    [switch]$d10,                   #
+    [switch]$d12,                   #
+    [switch]$d20,                   #
+    [switch]$Coin,                  #
+    #Options
+    [string[]]$Faces,               #    
+    [switch]$ExhaustFaces,          #
+    [switch]$MalifauxJokers,        #True if Malfiaux joker logic should be applied
+    [switch]$ShowSums,              #
+    [switch]$ShowExacts,            #
+    [switch]$ShowOrBetter,          #
+    [switch]$ShowHighLow,           #
+    [switch]$ShowAllTables,         #Shows all tables
+    #Debug
+    [switch]$Test,                  #Test Data
+    [switch]$ShowDebug             #if true debuging data will be displayed when the script executes.
 )
-
-
 
 
 #Arrays
 $aryFaces = @()               #This array holds the value on each face of each node
 $aryUniqueFaces = @()         #This array is a list of the unique faces on each node
 $aryResult = @()              #This array is the current result
-#$aryExactlyXTable = @()         #
-#$aryExactXOrMoreTable = @()           #
-#$aryOrBetterTable = @()         #
-#$aryExactSumTable = @()         #
-#$arySumOrMoreTable = @()         #
-#$aryHighFaceTable = @()         #
-#$aryLowFaceTable = @()         #
+#The arrays below are created in functions with the 'script' scope.  They are listed here for reference
+#$aryExactlyXTable = @()            #
+#$aryExactXOrMoreTable = @()        #
+#$aryOrBetterTable = @()            #
+#$aryExactSumTable = @()            #
+#$arySumOrMoreTable = @()           #
+#$aryHighFaceTable = @()            #
+#$aryLowFaceTable = @()             #
 
 #Variables
-$resultID = -1                #The current result
-$showProcessing = $false       #True if processing info should be displayed to the screen
-$showExacltyX = $false         #If true the Exaclty X table will be shown.  It is primarily for debugging.
+$resultID = -1                  #The current result
+$showProcessing = $false        #True if processing info should be displayed to the screen
 
 
 
-
-#Faces
-#if a faces array is input then use it.
-#if one of the 'system' (e.g. Xwing Attack Dice) switches is used then use the faces for that system.
+#input the faces used
 if($Faces.count -ne 0) {
     $aryFaces = $Faces
-}elseif($XWingAtt) {
+}
+
+
+#Process System Switches
+#sytems are like macros.  They contain the options, like using numeric dice or malifax jokers
+#and the faces of the nodes.
+
+if($XWingAtt) {
     $systemName = "X-Wing Attack Dice"
     $aryFaces = @("Blank","Blank","Focus","Focus","Hit","Hit","Hit","Crit")
+    $ShowOrBetter = $true
 }elseif($XWingDef) {
     $systemName = "X-Wing Defence Dice"
     $aryFaces = @("Blank","Blank","Blank","Focus","Focus","Evade","Evade","Evade")
+    $ShowOrBetter = $true
 }elseif($MalifauxUnsuited) {
     $systemName = "Malifaux Unsuited Cards"
     $ExhaustFaces=$true
-    $MalifuxJokers=$true
+    $MalifauxJokers=$true
     $aryFaces = @("BJ","1","1","1","1","2","2","2","2","3","3","3","3","4","4","4","4",`
                   "5","5","5","5","6","6","6","6","7","7","7","7","8","8","8","8","9","9","9","9", `
                   "10","10","10","10","11","11","11","11","12","12","12","12","13","13","13","13","RJ")
-}elseif($MalifauxSuitedBAK) {
-    $systemName = "Malifaux Sited Cards"
-    $ExhaustFaces=$true
-    $MalifuxJokers=$true
-    $aryFaces = @()
-    for($i = 1; $i -le 1; $i++) {
-        $aryFaces += "NA"
-    }
-    $aryFaces += @("BJ","1","2","3","4","5","6","7","8","9","10","11","12","13","RJ")
+    $ShowHighLow = $true
 }elseif($MalifauxSuited) {
     $systemName = "Malifaux Sited Cards"
     $ExhaustFaces=$true
-    $MalifuxJokers=$true
+    $MalifauxJokers=$true
     $aryFaces = @()
-    $aryFaces += @("BJ","1","2","3","RJ")
+    for($i = 1; $i -le 39; $i++) {
+        $aryFaces += "NA"
+    }
+    $aryFaces += @("BJ","1","2","3","4","5","6","7","8","9","10","11","12","13","RJ")
+    $ShowHighLow = $true
 }elseif($d4) {
     $systemName = "d4"
-    $NumericDice=$true
     $aryFaces = @(1,2,3,4)
+    $ShowSums=$true
 }elseif($d6) {
     $systemName = "d6"
-    $NumericDice=$true
     $aryFaces = @(1,2,3,4,5,6)
+    $ShowSums=$true
 }elseif($d8) {
     $systemName = "d8"
-    $NumericDice=$true
     $aryFaces = @(1,2,3,4,5,6,7,8)
+    $ShowSums=$true
 }elseif($d10) {
     $systemName = "d10"
-    $NumericDice=$true
     $aryFaces = @(1,2,3,4,5,6,7,8,9,10)
+    $ShowSums=$true
 }elseif($d12) {
     $systemName = "d12"
-    $NumericDice=$true
     $aryFaces = @(1,2,3,4,5,6,7,8,9,10,11,12)
+    $ShowSums=$true
 }elseif($d20) {
     $systemName = "d20"
-    $NumericDice=$true
     $aryFaces = @(1,2,3,4,5,6,7,8,9,10,11,1213,14,15,16,17,18,19,20)
-}elseif($Coin) {
-    $systemName = "Coin"
-    $ExhaustFaces=$false
-    $aryFaces = @("Heads","Tails")
+    $ShowSums=$true
 }elseif($Test) {
     $systemName = "Test Data"
-    $aryFaces = @("BJ","1","2","3","4","4","5","5","6","RJ")
-}elseif($Example) {
-    $systemName = "Example"
-    $NodeCount = 3
-    $ExhaustFaces=$false
-    $aryFaces = @("Blank","Blank","Focus","Focus","Hit","Hit","Hit","Crit")
-}else{
+    $ExhaustFaces=$true
+    $MalifauxJokers=$true
+    $aryFaces = @()
+    $aryFaces += @("BJ","1","2","3","RJ")
+    $ShowHighLow = $true
+}else{  
+    #default to coins
+    $systemName = "Coin"
     $aryFaces = @("Heads","Tails")
-}
-
-
-#set up the typical dispaly for numeric dice (d6, d12, etc...)
-if($NumericDice) {
-    $ExhaustFaces=$false
-    $NumericFaces=$true
-    $EquivalentFaces=$false
-    $MalifuxJokers=$false
-}
-
-#set up processing and display for coins
-if($Coin) {
-    $ExhaustFaces=$false
-    $NumericFaces=$false
-    $EquivalentFaces=$true
-    $MalifuxJokers=$false
+    $ShowExacts = $true
 }
 
 
@@ -314,11 +297,6 @@ function Create-OccuranceSummaryTables {
 function Create-MathSummaryTables {
 
 
-    #if not all faces are numeric then exit
-    if (!$NumericFaces) {
-        return
-    }
-
     if($showProcessing) {write-host "  Create-MathSummaryTables" -ForegroundColor green }
     
     #find highest and lowest numeric value on a face
@@ -415,25 +393,37 @@ function Create-DrawPool {
 
 ##################################################################################################
 #Looks at the current result and writes data to the summary tables
+#xxx
 
 function Analyze-Restult {
-    Analyze-RestultForExactlyX
-    Analyze-RestultForOrBetter
-    Analyze-ResultForMathValues
-    Analyze-RestultForHighAndLowFace
     if($showProcessing) {write-host ""}
 
+    #only analyze for a result if it will be displayed
+    if($ShowAllTables -or $ShowExacts)    {Analyze-RestultForExactlyX}
+    if($ShowAllTables -or $ShowOrBetter)  {Analyze-RestultForOrBetter}
+    if($ShowAllTables -or $ShowHighLow)   {Analyze-RestultForHighAndLowFace}
+    if($ShowSums)      {Analyze-ResultForMathValues}
 }
+
+
+##################################################################################################
+#Creates secondary summary tables
+#e.g. calculates the ExactXOrMoreTable from ExactlyXTable 
+#xxx
+function Calculate-SummaryTables{
+    if($ShowAllTables -or $ShowExacts)    {Calculate-ExactXOrMoreTable}
+    if($ShowAllTables -or $ShowOrBetter)  {Calculate-OrBetterTable}
+    if($ShowAllTables -or $ShowHighLow)   {}
+    if($ShowSums)      {Calculate-SumOrMoreTable}
+}
+
+
 
 
 
 ##################################################################################################
 function Analyze-ResultForMathValues {
 
-    #if not all faces are numeric then exit
-    if (!$NumericFaces) {
-        return
-    }
 
     if($showProcessing) {write-host "  Analyze-ResultForMathValues" -ForegroundColor green }
 
@@ -499,7 +489,7 @@ function Analyze-RestultForHighAndLowFace {
 
 
     #If Malifaux Jokers are in effect then proccess
-    if($MalifuxJokers) {
+    if($MalifauxJokers) {
         #check to see if there are any black jokers
         #if so both highest and lowest result is a black joker
         for($i = 0; $i -lt $script:aryResult.count; $i++) {
@@ -526,7 +516,6 @@ function Analyze-RestultForHighAndLowFace {
     }
 
 
-    #xxx
     #write the lowest faces to the lowface table
     #$lowFace = $aryResultAsRowsSorted[0] 
     $faceName = Convert-RowToFace -RowNumber $aryResultAsRowsSorted[0]
@@ -598,10 +587,6 @@ function Calculate-OrBetterTable {
 #
 function Calculate-SumOrMoreTable {
 
-    #if not all faces are numeric then exit
-    if (!$NumericFaces) {
-        return
-    }
 
     if($showProcessing) {write-host "  Calculate-SumOrMoreTable" -ForegroundColor green }
 
@@ -717,10 +702,6 @@ function Display-MathSummaryTable {
         [switch]$TotalOrMore
     )
 
-    #if not all faces are numeric then exit
-    if (!$NumericFaces) {
-        return
-    }
 
     $outFormat = "{0,-1} {1,-10} {2,-10}"
     
@@ -775,14 +756,11 @@ function Display-OccurnaceSummaryTable {
     )
 
 
-    #if this switch is not true do not display this table.  Its mostly for debugging
-    if(!$showExacltyX -and $ExactlyX) {return}
     #if no switch is true display nothing
     if(!$XOrBetter -and !$ExactXOrMore -and !$ExactlyX -and !$HighestFace -and !$LowestFace) {return}
 
     $rowCount = $($script:aryUniqueFaces).count
     $colCount = $NodeCount +1
-    
 
     #generate output format
     #initialize the format string
@@ -792,7 +770,7 @@ function Display-OccurnaceSummaryTable {
         if($col -eq 0) {
             $outFormat = $outFormat + "{$indexNum,-12} "
         } else {
-            $outFormat = $outFormat + "{$indexNum,-6} "
+            $outFormat = $outFormat + "{$indexNum,-10} "
         }
     }
 
@@ -900,6 +878,56 @@ function Display-ScenarioData {
 
 
 }
+#xxx
+##################################################################################################
+#Displays tables based on the scenario type
+#Scenarios:
+#  MalifauxJokers
+#  Coins
+#  XWing
+
+#Tables:
+#  ScenarioData
+#  OccurnaceSummaryTable -ExactlyX
+#  OccurnaceSummaryTable -ExactXOrMore
+
+#  OccurnaceSummaryTable -XOrBetter
+
+#  OccurnaceSummaryTable -LowestFace
+#  OccurnaceSummaryTable -HighestFace
+
+#  MathSummaryTable -ExactTotal
+#  MathSummaryTable -TotalOrMore
+
+
+
+function Display-Tables {
+
+
+    Display-ScenarioData
+
+    if($ShowAllTables -or $ShowExacts) {
+        Display-OccurnaceSummaryTable -ExactlyX
+        Display-OccurnaceSummaryTable -ExactXOrMore
+    }
+
+    if($ShowAllTables -or $ShowOrBetter) {
+        Display-OccurnaceSummaryTable -XOrBetter
+    }
+
+    if($ShowAllTables -or $ShowHighLow) {
+        Display-OccurnaceSummaryTable -LowestFace
+        Display-OccurnaceSummaryTable -HighestFace
+    }
+
+    if($ShowAllTables -or $ShowSums) {
+        Display-MathSummaryTable -ExactTotal
+        Display-MathSummaryTable -TotalOrMore
+    }
+
+
+}
+
 
 
 ##################################################################################################
@@ -945,13 +973,19 @@ function Convert-RowToFace {
 ##################################################################################################
 ## If not all faces in the face array are numberic then disable numeric processing.
 function Confirm-FacesAreNumeric {
+
+
+    #if any face is not numeric then change process sums to false
     foreach($face in $script:aryUniqueFaces) {
         if(isNumeric $face) {
         } else {
-            $script:NumericFaces = $false
-            break
+            $script:ShowSums = $false
+            return
         }
     }
+    #if no sum was not numeric the process sums
+    $script:ShowSums = $true
+
 }
 
 
@@ -990,10 +1024,16 @@ $startTime = Get-Date
 Create-RestultArray
 Create-UniqueFacessTable
 Create-OccuranceSummaryTables
-if($NumericFaces) {
+
+if($ShowSums -or $ShowAllTables) {
     Confirm-FacesAreNumeric
 }
-Create-MathSummaryTables
+if($ShowSums) {
+    Create-MathSummaryTables
+}
+
+
+
 
 ######################################
 # Processing
@@ -1001,22 +1041,11 @@ if($showProcessing) {write-host "" -ForegroundColor green }
 if($showProcessing) {write-host "Processing Started" -ForegroundColor green }
 $aryDrawPool = Create-DrawPool -PoolIn $aryFaces
 Generate-Result -DrawPool $aryDrawPool
-Calculate-ExactXOrMoreTable
-Calculate-OrBetterTable
-Calculate-SumOrMoreTable
+Calculate-SummaryTables
+
 
 ######################################
 # Restuls
 if($showProcessing) {write-host "" -ForegroundColor green }
 if($showProcessing) {write-host "Display Started" -ForegroundColor green }
-Display-ScenarioData
-Display-OccurnaceSummaryTable -ExactlyX
-Display-OccurnaceSummaryTable -ExactXOrMore
-Display-OccurnaceSummaryTable -XOrBetter
-Display-OccurnaceSummaryTable -LowestFace
-Display-OccurnaceSummaryTable -HighestFace
-Display-MathSummaryTable -ExactTotal
-Display-MathSummaryTable -TotalOrMore
-
-
-
+Display-Tables
