@@ -57,8 +57,9 @@
 
         To Do:
         Add "reroll logic" allow for rerolls and caclute percentages after a reroll
-        add "malifaux logic" account for red and black jokers.
         Add asymetrical dice support
+        Add percentages to displays
+        Add CSV Export
 
 
         Array notes
@@ -100,7 +101,7 @@ param(
     [switch]$ShowAllTables,         #Shows all tables
     #Debug
     [switch]$Test,                  #Test Data
-    [switch]$ShowDebug             #if true debuging data will be displayed when the script executes.
+    [switch]$ShowDebug              #if true debuging data will be displayed when the script executes.
 )
 
 
@@ -187,8 +188,7 @@ if($XWingAtt) {
     $systemName = "Test Data"
     $ExhaustFaces=$true
     $MalifauxJokers=$true
-    $aryFaces = @()
-    $aryFaces += @("BJ","1","2","3","RJ")
+    $aryFaces += @("BJ","1","1","1","1","2","2","2","2","RJ")
     $ShowHighLow = $true
 }else{  
     #default to coins
@@ -329,13 +329,84 @@ function Create-MathSummaryTables {
 
 
 ##################################################################################################
-# Processing functions
+# Calcuations functions
+##################################################################################################
+
+function Calculate-TheoreticalResults {
+
+    write-host "Calculate" -ForegroundColor Red
+
+
+
+    Calculate-HighLowForExhausted
+
+
+}
+
+
+#xxx
+##################################################################################################
+# Calculates how many times each face will be the highest and lowest face of a result if 
+#faces are exhausted (removed once drawn like a deck of cards).
+#Formula: 
+# n=nodeCount, f=faceCount, r=rank (1 is the highest ranked card e.g. 1 for the highest card, 2
+# when looking for the next highest, etc.)  It is reversed when looking for the lowest ranked card.
+# Occurances = ((f-r)^(n-1)*n
+function Calculate-HighLowForExhausted {
+
+
+    $faceCount = $script:aryFaces.Count
+    
+    if($MalifauxJokers) {
+        write-host "M jokers" -ForegroundColor red
+
+        $row = Convert-FaceToRow -FaceName "BJ"
+        write-host "BJROW: $row"
+
+        $x = 1
+        $occ = ([math]::Pow($faceCount-$x,$NodeCount -1)) * $NodeCount
+        Incriment-SummaryArray -FaceName "BJ" -HighFace -Calculated -Occurnaces $occ
+
+
+        for($row = $faceCount -1; $row -ge 1; $row--) {
+            $x = $faceCount - $row +1
+            $occ = ([math]::Pow($faceCount-$x,$NodeCount -1)) * $NodeCount
+            $faceName = $script:aryFaces[$row]
+            Incriment-SummaryArray -FaceName $faceName -HighFace -Calculated -Occurnaces $occ
+            write-host "$faceName x: $x"   -ForegroundColor red
+        }
+    } else {
+        for($row = $faceCount -1; $row -ge 0; $row--) {
+            $x = $faceCount - $row
+            $occ = ([math]::Pow($faceCount-$x,$NodeCount -1)) * $NodeCount
+            $faceName = $script:aryFaces[$row]
+            Incriment-SummaryArray -FaceName $faceName -HighFace -Calculated -Occurnaces $occ
+        }
+    }
+
+
+
+
+
+
+
+
+}
+
+
+
+
+
+
+
+##################################################################################################
+# Brute Force Processing functions
 ##################################################################################################
 
 
 ##################################################################################################
 #Steps through each face of a node
-function Generate-Result {
+function Generate-BruteForceResult {
     param(
         [int]$nodeNum = 1,         #the current node
         [Parameter(Mandatory=$true)]
@@ -353,7 +424,7 @@ function Generate-Result {
             } else {
                 $nextDrawPool = Create-DrawPool -PoolIn $DrawPool
             }
-            Generate-Result -nodeNum $nextNode -DrawPool $nextDrawPool
+            Generate-BruteForceResult -nodeNum $nextNode -DrawPool $nextDrawPool
         } else {
             $script:resultID = $script:resultID +1
             Write-Progress -Activity "Generating Results" -status "Result $script:resultID of $script:estResultCount" -percentComplete ($script:resultID / $script:estResultCount * 100)
@@ -393,7 +464,7 @@ function Create-DrawPool {
 
 ##################################################################################################
 #Looks at the current result and writes data to the summary tables
-#xxx
+#
 
 function Analyze-Restult {
     if($showProcessing) {write-host ""}
@@ -408,13 +479,13 @@ function Analyze-Restult {
 
 ##################################################################################################
 #Creates secondary summary tables
-#e.g. calculates the ExactXOrMoreTable from ExactlyXTable 
-#xxx
-function Calculate-SummaryTables{
-    if($ShowAllTables -or $ShowExacts)    {Calculate-ExactXOrMoreTable}
-    if($ShowAllTables -or $ShowOrBetter)  {Calculate-OrBetterTable}
+#e.g. Tallies the ExactXOrMoreTable from ExactlyXTable 
+#
+function Tally-SummaryTables{
+    if($ShowAllTables -or $ShowExacts)    {Tally-ExactXOrMoreTable}
+    if($ShowAllTables -or $ShowOrBetter)  {Tally-OrBetterTable}
     if($ShowAllTables -or $ShowHighLow)   {}
-    if($ShowSums)      {Calculate-SumOrMoreTable}
+    if($ShowSums)      {Tally-SumOrMoreTable}
 }
 
 
@@ -427,7 +498,7 @@ function Analyze-ResultForMathValues {
 
     if($showProcessing) {write-host "  Analyze-ResultForMathValues" -ForegroundColor green }
 
-    #calculate the total of all nodes
+    #tally the total of all nodes
     $total = 0
     foreach ($node in $script:aryResult) {
         $total = $total + [int]$node
@@ -495,8 +566,8 @@ function Analyze-RestultForHighAndLowFace {
         for($i = 0; $i -lt $script:aryResult.count; $i++) {
             #write-host "$($script:aryResult[$i])" -ForegroundColor red
             if($($script:aryResult[$i]) -eq "BJ") {
-                Incriment-SummaryArray -FaceName "BJ" -Occurnaces 1 -LowFace
-                Incriment-SummaryArray -FaceName "BJ" -Occurnaces 1 -HighFace
+                Incriment-SummaryArray -FaceName "BJ"  -LowFace -BruteForce
+                Incriment-SummaryArray -FaceName "BJ"  -HighFace -BruteForce
                 return
                 #return both high and lowest cards are BJ so no need to continue
             }
@@ -507,8 +578,8 @@ function Analyze-RestultForHighAndLowFace {
         for($i = 0; $i -lt $script:aryResult.count; $i++) {
             #write-host "$($script:aryResult[$i])" -ForegroundColor red
             if($($script:aryResult[$i]) -eq "RJ") {
-                Incriment-SummaryArray -FaceName "RJ" -Occurnaces 1 -LowFace
-                Incriment-SummaryArray -FaceName "RJ" -Occurnaces 1 -HighFace
+                Incriment-SummaryArray -FaceName "RJ" -LowFace -BruteForce
+                Incriment-SummaryArray -FaceName "RJ" -HighFace -BruteForce
                 return
                 #return both high and lowest cards are RJ so no need to continue
             }
@@ -519,13 +590,13 @@ function Analyze-RestultForHighAndLowFace {
     #write the lowest faces to the lowface table
     #$lowFace = $aryResultAsRowsSorted[0] 
     $faceName = Convert-RowToFace -RowNumber $aryResultAsRowsSorted[0]
-    Incriment-SummaryArray -FaceName $faceName -Occurnaces 1 -LowFace
+    Incriment-SummaryArray -FaceName $faceName -LowFace -BruteForce
 
 
     #write the highest faces to the hightface table
     #$highFace = $aryResultAsRowsSorted[$colCount -1] 
     $faceName = Convert-RowToFace -RowNumber $aryResultAsRowsSorted[$colCount -1]
-    Incriment-SummaryArray -FaceName $faceName -Occurnaces 1 -highFace
+    Incriment-SummaryArray -FaceName $faceName -HighFace -BruteForce
 
 
 
@@ -564,10 +635,10 @@ function Analyze-RestultForOrBetter {
 
 
 ##################################################################################################
-# Uses the raw data in the table to calculate the complete "or better" vlaues in the table
-function Calculate-OrBetterTable {
+# Uses the raw data in the table to tally the complete "or better" vlaues in the table
+function Tally-OrBetterTable {
 
-    if($showProcessing) {write-host "  Calculate-OrBetterTable" -ForegroundColor green }
+    if($showProcessing) {write-host "  Tally-OrBetterTable" -ForegroundColor green }
 
     #step through each colum
     for($col = 1; $col -le $NodeCount; $col++) {
@@ -585,10 +656,10 @@ function Calculate-OrBetterTable {
 
 ##################################################################################################
 #
-function Calculate-SumOrMoreTable {
+function Tally-SumOrMoreTable {
 
 
-    if($showProcessing) {write-host "  Calculate-SumOrMoreTable" -ForegroundColor green }
+    if($showProcessing) {write-host "  Tally-SumOrMoreTable" -ForegroundColor green }
 
     $CountColumn = 1         #The column holding the number of matchinc occurances
 
@@ -615,9 +686,9 @@ function Calculate-SumOrMoreTable {
 
 ##################################################################################################
 #
-function Calculate-ExactXOrMoreTable{
+function Tally-ExactXOrMoreTable{
 
-    if($showProcessing) {write-host "  Calculate-ExactXOrMoreTable" -ForegroundColor green }
+    if($showProcessing) {write-host "  Tally-ExactXOrMoreTable" -ForegroundColor green }
 
     #step through each row
     for($row=0; $row -lt $($script:aryUniqueFaces.count); $row++) {
@@ -645,7 +716,9 @@ function Incriment-SummaryArray {
         [switch]$ExactlyX,            #true if the Exact Occurnaces array shoud be updated
         [switch]$OrBetter,            #true if the Or Better array shoud be updated
         [switch]$HighFace,            #true if the HighFace array shoud be updated
-        [switch]$LowFace              #true if the LowFce array shoud be updated
+        [switch]$LowFace,             #true if the LowFce array shoud be updated
+        [switch]$Calculated,          #
+        [switch]$BruteForce           #
     )
 
     #the row and column to update
@@ -658,9 +731,17 @@ function Incriment-SummaryArray {
     } elseif ($OrBetter) {
         $script:aryOrBetterTable[$row,$col] = $script:aryOrBetterTable[$row,$col] +1
     } elseif ($HighFace) {
-        $script:aryHighFaceTable[$row,$col] = $script:aryHighFaceTable[$row,$col] +1
+        if($BruteForce) {
+            $script:aryHighFaceTable[$row,1] = $script:aryHighFaceTable[$row,1] +1
+        } else {
+            $script:aryHighFaceTable[$row,2] = $script:aryHighFaceTable[$row,2] + $Occurnaces
+        }
     } elseif ($LowFace) {
-        $script:aryLowFaceTable[$row,$col] = $($script:aryLowFaceTable[$row,$col] +1)
+        if($BruteForce) {
+            $script:aryLowFaceTable[$row,1] = $script:aryLowFaceTable[$row,1] +1
+        } else {
+            $script:aryLowFaceTable[$row,2] = $script:aryLowFaceTable[$row,2] + $Occurnaces
+        }
     } 
 
 
@@ -878,7 +959,7 @@ function Display-ScenarioData {
 
 
 }
-#xxx
+#
 ##################################################################################################
 #Displays tables based on the scenario type
 #Scenarios:
@@ -1040,8 +1121,9 @@ if($ShowSums) {
 if($showProcessing) {write-host "" -ForegroundColor green }
 if($showProcessing) {write-host "Processing Started" -ForegroundColor green }
 $aryDrawPool = Create-DrawPool -PoolIn $aryFaces
-Generate-Result -DrawPool $aryDrawPool
-Calculate-SummaryTables
+Generate-BruteForceResult -DrawPool $aryDrawPool
+Calculate-TheoreticalResults
+Tally-SummaryTables
 
 
 ######################################
