@@ -112,7 +112,8 @@ $aryResult = @()              #This array is the current result
 #The arrays below are created in functions with the 'script' scope.  They are listed here for reference
 #$aryExactlyXTable = @()            #
 #$aryExactXOrMoreTable = @()        #
-#$aryOrBetterTable = @()            #
+#$aryOrBetterBFTable = @()          #
+#$aryOrBetterCalcTable = @()        #
 #$aryExactSumTable = @()            #
 #$arySumOrMoreTable = @()           #
 #$aryHighFaceTable = @()            #
@@ -260,7 +261,8 @@ function Create-OccuranceSummaryTables {
     #creat the Exact and OrBetter summary arrays
     $faceCount = $script:aryUniqueFaces.count
     $script:aryExactlyXTable = New-Object 'object[,]' $faceCount,$([int]$NodeCount+1)
-    $script:aryOrBetterTable = New-Object 'object[,]' $faceCount,$([int]$NodeCount+1)
+    $script:aryOrBetterBFTable = New-Object 'object[,]' $faceCount,$([int]$NodeCount+1)
+    $script:aryOrBetterCalcTable = New-Object 'object[,]' $faceCount,$([int]$NodeCount+1)
     $script:aryExactXOrMoreTable = New-Object 'object[,]' $faceCount,$([int]$NodeCount+1)
     $script:aryHighFaceTable = New-Object 'object[,]' $faceCount,$([int]$NodeCount+1)
     $script:aryLowFaceTable = New-Object 'object[,]' $faceCount,$([int]$NodeCount+1)
@@ -273,13 +275,15 @@ function Create-OccuranceSummaryTables {
     #put the face name in the 0 element in the array
     for($row = 0; $row -lt ($script:aryUniqueFaces).count; $row++) {
         $aryExactlyXTable[$row,0] = $script:aryUniqueFaces[$row]
-        $aryOrBetterTable[$row,0] = $script:aryUniqueFaces[$row]
+        $aryOrBetterBFTable[$row,0] = $script:aryUniqueFaces[$row]
+        $aryOrBetterCalcTable[$row,0] = $script:aryUniqueFaces[$row]
         $aryHighFaceTable[$row,0] = $script:aryUniqueFaces[$row]
         $aryLowFaceTable[$row,0] = $script:aryUniqueFaces[$row]
         #zero the rest of the values in the arrays
         for($col = 1; $col -le $([int]$NodeCount); $col++) {
             $aryExactlyXTable[$row,$col] = 0
-            $aryOrBetterTable[$row,$col] = 0
+            $aryOrBetterBFTable[$row,$col] = 0
+            $aryOrBetterCalcTable[$row,$col] = 0
             $aryExactXOrMoreTable[$row,$col] = 0
             $aryHighFaceTable[$row,$col] = 0
             $aryLowFaceTable[$row,$col] = 0
@@ -339,12 +343,54 @@ function Calculate-TheoreticalResults {
 
 
     Calculate-HighLowForExhausted
+    Calculate-XOrBetterNonExhausting
+
+
+
+
+
 
 
 }
 
 
+
+
+
+##################################################################################################
 #xxx
+function Calculate-XOrBetterNonExhausting {
+
+
+
+    #step thorough each face
+
+    for($i = $($script:aryFaces.count -1); $i -ge 0; $i--){
+
+
+        #calc 1 or more  instances
+        $a = [math]::pow($($i+1),$NodeCount)
+        $b = [math]::pow($i,$NodeCount)
+        $c = $a - $b
+
+
+
+        Write-Host "$i $($script:aryFaces[$i]): $a - $b = $c" -ForegroundColor Yellow
+        
+        Incriment-SummaryArray -FaceName $($script:aryFaces[$i]) -Occurnaces 1 -Tally $c -OrBetterCalc
+
+    }
+
+
+    
+
+
+}
+
+
+
+
+
 ##################################################################################################
 # Calculates how many times each face will be the highest and lowest face of a result if 
 #faces are exhausted (removed once drawn like a deck of cards).
@@ -629,7 +675,7 @@ function Analyze-RestultForOrBetter {
         #ascending order any values left must be of an equal or higher value.
         $quant = ($colCount) - $col
         $faceName = Convert-RowToFace -RowNumber $aryResultAsRowsSorted[$col]
-        Incriment-SummaryArray -FaceName $faceName -Occurnaces $quant -OrBetter
+        Incriment-SummaryArray -FaceName $faceName -Occurnaces $quant -OrBetterHC
     }
 }
 
@@ -646,7 +692,7 @@ function Tally-OrBetterTable {
         for($row = 0; $row -le $script:aryUniqueFaces.count; $row++) {
             #add the values of all the higher value results to this result
             for($shortRow = $row +1; $shortRow -le $script:aryUniqueFaces.count; $shortRow++) {
-                $script:aryOrBetterTable[$Row,$col] = $script:aryOrBetterTable[$Row,$col] + $($script:aryOrBetterTable[$shortRow,$col])
+                $script:aryOrBetterBFTable[$Row,$col] = $script:aryOrBetterBFTable[$Row,$col] + $($script:aryOrBetterBFTable[$shortRow,$col])
             }
         }
     }
@@ -713,8 +759,10 @@ function Incriment-SummaryArray {
     param(
         [string]$FaceName,            #the name of the face to incriment
         [int]$Occurnaces,             #the number of times the face occured
+        [int]$Tally,                  #the number of times the face/occurance combo occured
         [switch]$ExactlyX,            #true if the Exact Occurnaces array shoud be updated
-        [switch]$OrBetter,            #true if the Or Better array shoud be updated
+        [switch]$OrBetterHC,            #true if the Or Better array shoud be updated
+        [switch]$OrBetterCalc,            #true if the Or Better array shoud be updated
         [switch]$HighFace,            #true if the HighFace array shoud be updated
         [switch]$LowFace,             #true if the LowFce array shoud be updated
         [switch]$Calculated,          #
@@ -723,13 +771,17 @@ function Incriment-SummaryArray {
 
     #the row and column to update
     $row = Convert-FaceToRow -FaceName $FaceName
-    $col = $Occurnaces
 
     #update arrays
     if ($ExactlyX) {
+        $col = $Occurnaces
         $script:aryExactlyXTable[$row,$col] = $script:aryExactlyXTable[$row,$col] +1
-    } elseif ($OrBetter) {
-        $script:aryOrBetterTable[$row,$col] = $script:aryOrBetterTable[$row,$col] +1
+    } elseif ($OrBetterHC) {
+        $col = $Occurnaces
+        $script:aryOrBetterBFTable[$row,$col] = $script:aryOrBetterBFTable[$row,$col] +1
+    } elseif ($OrBetterCalc) {
+        $col = $Occurnaces
+        $script:aryOrBetterCalcTable[$row,$col] = $script:aryOrBetterCalcTable[$row,$col] +$Tally
     } elseif ($HighFace) {
         if($BruteForce) {
             $script:aryHighFaceTable[$row,1] = $script:aryHighFaceTable[$row,1] +1
@@ -831,14 +883,15 @@ function Display-OccurnaceSummaryTable {
     param(
         [switch]$ExactlyX,              #True if the Exact Occurnaces table should be displayed
         [switch]$ExactXOrMore,               #True if the ExactXOrMore table should be displayed
-        [switch]$XOrBetter,             #True if the OrBetter table should be displayed
+        [switch]$XOrBetterBF,             #True if the OrBetter table should be displayed
+        [switch]$XOrBetterCalc,             #True if the OrBetter table should be displayed
         [switch]$HighestFace,          #True if the OrBetter table should be displayed
         [switch]$LowestFace             #True if the OrBetter table should be displayed
     )
 
 
     #if no switch is true display nothing
-    if(!$XOrBetter -and !$ExactXOrMore -and !$ExactlyX -and !$HighestFace -and !$LowestFace) {return}
+    if(!$XOrBetterCalc -and !$XOrBetterBF -and !$ExactXOrMore -and !$ExactlyX -and !$HighestFace -and !$LowestFace) {return}
 
     $rowCount = $($script:aryUniqueFaces).count
     $colCount = $NodeCount +1
@@ -864,8 +917,12 @@ function Display-OccurnaceSummaryTable {
         $outTableTitle = "Exactly X Or More"
         $outDescritption = "How many times a face occurs X times or more (e.g. two or more 3's)."
         $outDescritption2 = "Good for coin flips and game like Yahtee, where the exact value of the node is important."
-    } elseif($XOrBetter) {
-        $outTableTitle = "X Or Better"
+    } elseif($XOrBetterBF) {
+        $outTableTitle = "X Or Better BF"
+        $outDescritption = "How many times a face or better occurs X times or more (e.g. 2 or more 3+'s )."
+        $outDescritption2 = "Good for dice pools like X-Wing where Hits and Crits (and maybe Focuses) damage ships."
+    } elseif($XOrBetterCalc) {
+        $outTableTitle = "X Or Better Calc"
         $outDescritption = "How many times a face or better occurs X times or more (e.g. 2 or more 3+'s )."
         $outDescritption2 = "Good for dice pools like X-Wing where Hits and Crits (and maybe Focuses) damage ships."
     } elseif($HighestFace) {
@@ -905,8 +962,10 @@ function Display-OccurnaceSummaryTable {
         $outData = @()     #initialize the data array to output the data
         $outData += ""
         for($col=0; $col -lt $colCount;$col++) {
-            if($XOrBetter) {
-                $outData += $script:aryOrBetterTable[$row,$col]
+            if($XOrBetterBF) {
+                $outData += $script:aryOrBetterBFTable[$row,$col]
+            } elseif($XOrBetterCalc) {
+                $outData += $script:aryOrBetterCalcTable[$row,$col]
             } elseif($ExactXOrMore) {
                 $outData += $script:aryExactXOrMoreTable[$row,$col]
             } elseif($ExactlyX) {
@@ -972,7 +1031,7 @@ function Display-ScenarioData {
 #  OccurnaceSummaryTable -ExactlyX
 #  OccurnaceSummaryTable -ExactXOrMore
 
-#  OccurnaceSummaryTable -XOrBetter
+#  OccurnaceSummaryTable -XOrBetterBF
 
 #  OccurnaceSummaryTable -LowestFace
 #  OccurnaceSummaryTable -HighestFace
@@ -993,7 +1052,8 @@ function Display-Tables {
     }
 
     if($ShowAllTables -or $ShowOrBetter) {
-        Display-OccurnaceSummaryTable -XOrBetter
+        Display-OccurnaceSummaryTable -XOrBetterBF
+        Display-OccurnaceSummaryTable -XOrBetterCalc
     }
 
     if($ShowAllTables -or $ShowHighLow) {
@@ -1026,7 +1086,7 @@ function Convert-FaceToRow {
 
     $rowCount = $($script:aryUniqueFaces).count -1
     for($row = $rowCount; $row -ge 0;$row--) {
-        $colFace = $script:aryOrBetterTable[$row,0]
+        $colFace = $script:aryOrBetterBFTable[$row,0]
         if ($FaceName -eq $colFace) {
             $returnRow = $row
             #write-host "    Convert-FaceToRow                   $FaceName Row: $returnRow"
