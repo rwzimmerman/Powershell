@@ -169,6 +169,7 @@ if($XWingAtt) {
     $systemName = "d6"
     $aryFaces = @(1,2,3,4,5,6)
     $ShowSums=$true
+    $ShowOrBetter = $true
 }elseif($d8) {
     $systemName = "d8"
     $aryFaces = @(1,2,3,4,5,6,7,8)
@@ -360,31 +361,63 @@ function Calculate-TheoreticalResults {
 ##################################################################################################
 #xxx
 function Calculate-XOrBetterNonExhausting {
+# https://math.stackexchange.com/questions/326034/probability-of-rolling-three-dice-without-getting-a-6
+# https://math.stackexchange.com/questions/2031483/using-3-fair-6-sided-dice-what-is-the-probability-of-rolling-2-or-more-dice-wit
+# https://math.stackexchange.com/questions/2612113/probability-of-rolling-%E2%89%A5-x-with-k-out-of-m-n-sided-dice
+
+    Write-Host "Calculate-XOrBetterNonExhausting"
+    #step thorough each face
+
+    #the total faces on the node
+    $FaceCount = $script:aryFaces.count
+
+    #step through each face in the unique faces
+    foreach($face in $script:aryUniqueFaces){
+        #find the lowest numbered row in the faces array matching the current unique face
+        $FaceRow = Convert-FaceToLowestRow $face
+
+        #calculate all possible events, and non matching events
+        $allPossible = ([math]::pow($FaceCount,$NodeCount))
+        $nonMatching = ([math]::pow($FaceRow,$NodeCount))
+        #subtrace to get the matching events
+        $matches =  $allPossible - $nonMatching
+
+        write-host ("{0,-15} {1,-15} {2,-15} {3,-15}" -f $face,$matches,"$allPossible - $nonMatching","$FaceCount^$NodeCount - $FaceRow^$NodeCount" ) -ForegroundColor Yellow
+
+
+        #add the matching events tally to the summary array
+        Incriment-SummaryArray -FaceName $face -OccCount 1 -Tally $matches -OrBetter -Calculated
+    }
+}
+
+
+##################################################################################################
+#xxx
+function Calculate-XOrBetterNonExhaustingBAK {
 
 
 
     #step thorough each face
-
     for($i = $($script:aryFaces.count -1); $i -ge 0; $i--){
 
+        $FaceName = $($script:aryFaces[$i])
 
-        #calc 1 or more  instances
-        $a = [math]::pow($($i+1),$NodeCount)
-        $b = [math]::pow($i,$NodeCount)
-        $c = $a - $b
+        #Get the total number of possible events that could include the current face or a lesser face
+        $bigCube = [math]::pow($($i+1),$NodeCount)
+        #Get the total number of possible events that could NOT include the currrent face, but could include a lesser face
+        $littleCube = [math]::pow($i,$NodeCount)
+        #subtract the number of items in the smallCube from the big cube to leave just the number of events that could possibly contain the current face
+        $shell = $bigCube - $littleCube
 
+        $UniqueFaceRow = Get-UniqueFaceRow -FaceName $FaceName
 
-
-        Write-Host "$i $($script:aryFaces[$i]): $a - $b = $c" -ForegroundColor Yellow
-        
-        Incriment-SummaryArray -FaceName $($script:aryFaces[$i]) -Occurnaces 1 -Tally $c -OrBetterCalc
-
+        #step through the current face and each lesser face and add the current tally to the Or Better Calculated table
+        for($j = 0; $j -le $UniqueFaceRow; $j++) {
+            $FaceName = $($script:aryUniqueFaces[$j])
+            write-host $FaceName -ForegroundColor Gray
+            Incriment-SummaryArray -FaceName $FaceName -OccCount 1 -Tally $shell -OrBetter -Calculated
+        }
     }
-
-
-    
-
-
 }
 
 
@@ -411,14 +444,14 @@ function Calculate-HighLowForExhausted {
 
         $x = 1
         $occ = ([math]::Pow($faceCount-$x,$NodeCount -1)) * $NodeCount
-        Incriment-SummaryArray -FaceName "BJ" -HighFace -Calculated -Occurnaces $occ
+        Incriment-SummaryArray -FaceName "BJ" -OccCount $occ -HighFace -Calculated
 
 
         for($row = $faceCount -1; $row -ge 1; $row--) {
             $x = $faceCount - $row +1
             $occ = ([math]::Pow($faceCount-$x,$NodeCount -1)) * $NodeCount
             $faceName = $script:aryFaces[$row]
-            Incriment-SummaryArray -FaceName $faceName -HighFace -Calculated -Occurnaces $occ
+            Incriment-SummaryArray -FaceName $faceName -OccCount $occ -HighFace -Calculated
             write-host "$faceName x: $x"   -ForegroundColor red
         }
     } else {
@@ -426,7 +459,7 @@ function Calculate-HighLowForExhausted {
             $x = $faceCount - $row
             $occ = ([math]::Pow($faceCount-$x,$NodeCount -1)) * $NodeCount
             $faceName = $script:aryFaces[$row]
-            Incriment-SummaryArray -FaceName $faceName -HighFace -Calculated -Occurnaces $occ
+            Incriment-SummaryArray -FaceName $faceName -OccCount $occ -HighFace -Calculated 
         }
     }
 
@@ -575,7 +608,7 @@ function Analyze-RestultForExactlyX {
         }
         if($occurances -gt 0) {
             #update the exact occurnace array
-            Incriment-SummaryArray -FaceName $face -Occurnaces $occurances -ExactlyX
+            Incriment-SummaryArray -FaceName $face -OccCount $occurances -ExactlyX
         }
     }
 }
@@ -675,7 +708,7 @@ function Analyze-RestultForOrBetter {
         #ascending order any values left must be of an equal or higher value.
         $quant = ($colCount) - $col
         $faceName = Convert-RowToFace -RowNumber $aryResultAsRowsSorted[$col]
-        Incriment-SummaryArray -FaceName $faceName -Occurnaces $quant -OrBetterHC
+        Incriment-SummaryArray -FaceName $faceName -OccCount $quant -OrBetter -BruteForce
     }
 }
 
@@ -754,15 +787,14 @@ function Tally-ExactXOrMoreTable{
 
 
 ##################################################################################################
-# 
+# xxx
 function Incriment-SummaryArray {
     param(
         [string]$FaceName,            #the name of the face to incriment
-        [int]$Occurnaces,             #the number of times the face occured
+        [int]$OccCount,               #the number of times the face occured
         [int]$Tally,                  #the number of times the face/occurance combo occured
+        [switch]$OrBetter,            #
         [switch]$ExactlyX,            #true if the Exact Occurnaces array shoud be updated
-        [switch]$OrBetterHC,            #true if the Or Better array shoud be updated
-        [switch]$OrBetterCalc,            #true if the Or Better array shoud be updated
         [switch]$HighFace,            #true if the HighFace array shoud be updated
         [switch]$LowFace,             #true if the LowFce array shoud be updated
         [switch]$Calculated,          #
@@ -772,27 +804,35 @@ function Incriment-SummaryArray {
     #the row and column to update
     $row = Convert-FaceToRow -FaceName $FaceName
 
-    #update arrays
+    #update Exaclty X tables
     if ($ExactlyX) {
-        $col = $Occurnaces
+        $col = $OccCount
         $script:aryExactlyXTable[$row,$col] = $script:aryExactlyXTable[$row,$col] +1
-    } elseif ($OrBetterHC) {
-        $col = $Occurnaces
-        $script:aryOrBetterBFTable[$row,$col] = $script:aryOrBetterBFTable[$row,$col] +1
-    } elseif ($OrBetterCalc) {
-        $col = $Occurnaces
-        $script:aryOrBetterCalcTable[$row,$col] = $script:aryOrBetterCalcTable[$row,$col] +$Tally
+    
+    #update X Or Better tables
+    } elseif ($OrBetter) {
+        if($BruteForce) {
+            $col = $OccCount
+            $script:aryOrBetterBFTable[$row,$col] = $script:aryOrBetterBFTable[$row,$col] +1
+        } elseif($Calculated) {
+            $col = $OccCount
+            $script:aryOrBetterCalcTable[$row,$col] = $script:aryOrBetterCalcTable[$row,$col] + $Tally
+        }
+
+    #udpate High Face    
     } elseif ($HighFace) {
         if($BruteForce) {
             $script:aryHighFaceTable[$row,1] = $script:aryHighFaceTable[$row,1] +1
-        } else {
-            $script:aryHighFaceTable[$row,2] = $script:aryHighFaceTable[$row,2] + $Occurnaces
+        } elseif ($Calculated) {
+            $script:aryHighFaceTable[$row,2] = $script:aryHighFaceTable[$row,2] + $OccCount
         }
+
+    #update Low Face
     } elseif ($LowFace) {
         if($BruteForce) {
             $script:aryLowFaceTable[$row,1] = $script:aryLowFaceTable[$row,1] +1
-        } else {
-            $script:aryLowFaceTable[$row,2] = $script:aryLowFaceTable[$row,2] + $Occurnaces
+        } elseif ($Calculated) {
+            $script:aryLowFaceTable[$row,2] = $script:aryLowFaceTable[$row,2] + $OccCount
         }
     } 
 
@@ -1076,6 +1116,29 @@ function Display-Tables {
 ##################################################################################################
 
 
+
+##################################################################################################
+#Returns the lowest row number of a given face value in the Faces Table
+
+function Convert-FaceToLowestRow {
+    param(
+        $FaceName
+    )
+
+    #step through the face array returning the row number for the first match
+    for($i = 0; $i -le $script:aryFaces.count; $i++ ) {
+        if($script:aryFaces[$i] -eq $FaceName) {
+            #return the number of the row maching the face
+            return $i
+        }
+    }
+    #if no matches were found return -1
+    return -1
+}
+
+
+
+
 ##################################################################################################
 #Returns the row number of a given face value
 function Convert-FaceToRow {
@@ -1107,6 +1170,24 @@ function Convert-RowToFace {
     $returnFace = $script:aryUniqueFaces[$RowNumber]
     return $returnFace
 }
+
+
+
+##################################################################################################
+# Returns the row matching he face name in the Unique Faces table
+function Get-UniqueFaceRow {
+    param (
+        [string]$FaceName
+    )
+
+    for($i = 0; $i -lt $script:aryUniqueFaces.count; $i++) {
+        if($script:aryUniqueFaces[$i] -eq $FaceName) {
+            return $i
+        }
+    }
+}
+
+
 
 
 
