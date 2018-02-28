@@ -357,68 +357,58 @@ function Calculate-TheoreticalResults {
 
 
 
-
 ##################################################################################################
 #xxx
 function Calculate-XOrBetterNonExhausting {
-# https://math.stackexchange.com/questions/326034/probability-of-rolling-three-dice-without-getting-a-6
-# https://math.stackexchange.com/questions/2031483/using-3-fair-6-sided-dice-what-is-the-probability-of-rolling-2-or-more-dice-wit
-# https://math.stackexchange.com/questions/2612113/probability-of-rolling-%E2%89%A5-x-with-k-out-of-m-n-sided-dice
-
-    Write-Host "Calculate-XOrBetterNonExhausting"
-    #step thorough each face
-
-    #the total faces on the node
-    $FaceCount = $script:aryFaces.count
-
-    #step through each face in the unique faces
-    foreach($face in $script:aryUniqueFaces){
-        #find the lowest numbered row in the faces array matching the current unique face
-        $FaceRow = Convert-FaceToLowestRow $face
-
-        #calculate all possible events, and non matching events
-        $allPossible = ([math]::pow($FaceCount,$NodeCount))
-        $nonMatching = ([math]::pow($FaceRow,$NodeCount))
-        #subtrace to get the matching events
-        $matches =  $allPossible - $nonMatching
-
-        write-host ("{0,-15} {1,-15} {2,-15} {3,-15}" -f $face,$matches,"$allPossible - $nonMatching","$FaceCount^$NodeCount - $FaceRow^$NodeCount" ) -ForegroundColor Yellow
 
 
-        #add the matching events tally to the summary array
-        Incriment-SummaryArray -FaceName $face -OccCount 1 -Tally $matches -OrBetter -Calculated
+    for($i = 1; $i -le $NodeCount; $i++) {
+        
+        Calculate-sub -OccCount $i
     }
+
+
+
 }
+
+
+
 
 
 ##################################################################################################
 #xxx
-function Calculate-XOrBetterNonExhaustingBAK {
+# https://math.stackexchange.com/questions/326034/probability-of-rolling-three-dice-without-getting-a-6
+# https://math.stackexchange.com/questions/2031483/using-3-fair-6-sided-dice-what-is-the-probability-of-rolling-2-or-more-dice-wit
+# https://math.stackexchange.com/questions/2612113/probability-of-rolling-%E2%89%A5-x-with-k-out-of-m-n-sided-dice
+function Calculate-sub {
+    param(
+        [int]$OccCount = 1      #The number of occurances to look for.
+
+    )
+
+
+    Write-Host "Calculate-XOrBetterNonExhausting: $OccCount"
+
+    #caclulate all possible results
+    $faceCount = $script:aryFaces.count
+    $allPossibleResults = [math]::pow($faceCount,$NodeCount)
+
+    #step through each face in the unique faces
+    foreach($face in $script:aryUniqueFaces) {
+
+        $faceCount = Get-FaceCount $face
 
 
 
-    #step thorough each face
-    for($i = $($script:aryFaces.count -1); $i -ge 0; $i--){
 
-        $FaceName = $($script:aryFaces[$i])
+        write-host ("{0,-15} {1,-15} {2,-15} {3,-15} {4,-15}" -f $face, "FCount: $faceCount"," / $allPossibleResults","c","d" ) -ForegroundColor Yellow
 
-        #Get the total number of possible events that could include the current face or a lesser face
-        $bigCube = [math]::pow($($i+1),$NodeCount)
-        #Get the total number of possible events that could NOT include the currrent face, but could include a lesser face
-        $littleCube = [math]::pow($i,$NodeCount)
-        #subtract the number of items in the smallCube from the big cube to leave just the number of events that could possibly contain the current face
-        $shell = $bigCube - $littleCube
-
-        $UniqueFaceRow = Get-UniqueFaceRow -FaceName $FaceName
-
-        #step through the current face and each lesser face and add the current tally to the Or Better Calculated table
-        for($j = 0; $j -le $UniqueFaceRow; $j++) {
-            $FaceName = $($script:aryUniqueFaces[$j])
-            write-host $FaceName -ForegroundColor Gray
-            Incriment-SummaryArray -FaceName $FaceName -OccCount 1 -Tally $shell -OrBetter -Calculated
-        }
+        #add the matching events tally to the summary array
+        #Incriment-SummaryArray -FaceName $face -OccCount $OccCount -Tally $percent -OrBetter -Calculated
     }
 }
+
+
 
 
 
@@ -1114,6 +1104,25 @@ function Display-Tables {
 ##################################################################################################
 # Helper Functions
 ##################################################################################################
+
+
+
+##################################################################################################
+#Returns the number of times a face occurs in the face array.
+function Get-FaceCount {
+    param (
+        [string]$FaceName          #The name of the face to count
+    )
+
+    $faceCount = 0
+    foreach($face in $script:aryFaces) {
+        if($face -eq $FaceName) {
+            $faceCount = $faceCount +1
+        }
+    }
+    return $faceCount
+}
+
 
 
 
