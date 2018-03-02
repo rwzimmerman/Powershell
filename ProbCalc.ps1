@@ -265,15 +265,15 @@ function Create-OccuranceSummaryTables {
     
     #creat the Exact and OrBetter summary arrays
     $faceCount = $script:aryUniqueFaces.count
-    $script:aryBFExactlyXTable = New-Object 'object[,]' $faceCount,$([int]$NodeCount+1)
-    $script:aryBFOrBetterTable = New-Object 'object[,]' $faceCount,$([int]$NodeCount+1)
-    $script:aryBFExactXOrMoreTable = New-Object 'object[,]' $faceCount,$([int]$NodeCount+1)
+    $script:aryBFExactlyXTable = New-Object 'object[,]' $faceCount,$([int]$NodeCount+2)
+    $script:aryBFOrBetterTable = New-Object 'object[,]' $faceCount,$([int]$NodeCount+2)
+    $script:aryBFExactXOrMoreTable = New-Object 'object[,]' $faceCount,$([int]$NodeCount+2)
 
-    $script:aryCalcExactlyXTable = New-Object 'object[,]' $faceCount,$([int]$NodeCount+1)
-    $script:aryCalcOrBetterTable = New-Object 'object[,]' $faceCount,$([int]$NodeCount+1)
+    $script:aryCalcExactlyXTable = New-Object 'object[,]' $faceCount,$([int]$NodeCount+2)
+    $script:aryCalcOrBetterTable = New-Object 'object[,]' $faceCount,$([int]$NodeCount+2)
 
-    $script:aryHighFaceTable = New-Object 'object[,]' $faceCount,$([int]$NodeCount+1)
-    $script:aryLowFaceTable = New-Object 'object[,]' $faceCount,$([int]$NodeCount+1)
+    $script:aryHighFaceTable = New-Object 'object[,]' $faceCount,$([int]$NodeCount+2)
+    $script:aryLowFaceTable = New-Object 'object[,]' $faceCount,$([int]$NodeCount+2)
 
 
     #get row and column sizes
@@ -289,7 +289,7 @@ function Create-OccuranceSummaryTables {
         $aryHighFaceTable[$row,0] = $script:aryUniqueFaces[$row]
         $aryLowFaceTable[$row,0] = $script:aryUniqueFaces[$row]
         #zero the rest of the values in the arrays
-        for($col = 1; $col -le $([int]$NodeCount); $col++) {
+        for($col = 1; $col -le $([int]$NodeCount)+1; $col++) {
             $aryBFExactlyXTable[$row,$col] = 0
             $aryCalcExactlyXTable[$row,$col] = 0
             $aryBFOrBetterTable[$row,$col] = 0
@@ -299,6 +299,7 @@ function Create-OccuranceSummaryTables {
             $aryLowFaceTable[$row,$col] = 0
         }
     }
+
 }
 
 
@@ -352,8 +353,7 @@ function Calculate-TheoreticalResults {
 
 
 
-    Calculate-HighLowForExhausted
-    Calculate-XOrBetterNonExhausting
+    Calculate-X
 
 
 
@@ -367,53 +367,34 @@ function Calculate-TheoreticalResults {
 
 
 ##################################################################################################
-#xxx
-function Calculate-XOrBetterNonExhausting {
+# xxxxxx
+function Calculate-X {
 
 
-    for($i = 1; $i -le $NodeCount; $i++) {
-        
-        Calculate-sub -OccCount $i
-    }
-
-
-
-}
-
-
-
-
-
-##################################################################################################
-#xxx
-# https://math.stackexchange.com/questions/326034/probability-of-rolling-three-dice-without-getting-a-6
-# https://math.stackexchange.com/questions/2031483/using-3-fair-6-sided-dice-what-is-the-probability-of-rolling-2-or-more-dice-wit
-# https://math.stackexchange.com/questions/2612113/probability-of-rolling-%E2%89%A5-x-with-k-out-of-m-n-sided-dice
-function Calculate-sub {
-    param(
-        [int]$OccCount = 1      #The number of occurances to look for.
-
-    )
-
-
-    Write-Host "Calculate-XOrBetterNonExhausting: $OccCount"
-
-    #caclulate all possible results
-    $faceCount = $script:aryFaces.count
-    $allPossibleResults = [math]::pow($faceCount,$NodeCount)
-
-    #step through each face in the unique faces
     foreach($face in $script:aryUniqueFaces) {
 
-        $faceCount = Get-FaceCount $face
+        #Get how many times the current face occures on the node
+        $matchingFaceCount =  Get-FaceCount -FaceName $face
+        #get how many faces the current node has in total
+        $totalFaceCount =  $script:aryFaces.Count 
+        write-host "`n$face - FC: $matchingFaceCount / $totalFaceCount - NC : $NodeCount" -ForegroundColor Yellow
+        
+        #The sum of the chances so far.  Mostly for debugging.  It should sum to 100%
+        $ExacltyXChanceSum = 0
 
-
-
-
-        write-host ("{0,-15} {1,-15} {2,-15} {3,-15} {4,-15}" -f $face, "FCount: $faceCount"," / $allPossibleResults","c","d" ) -ForegroundColor Yellow
-
-        #add the matching events tally to the summary array
-        #Incriment-SummaryArray -FaceName $face -OccCount $OccCount -Tally $percent -OrBetter -Calculated
+        #step the number of time the face can occure (0 to the node count)
+        for($occCount = 0; $occCount -le $NodeCount; $occCount++) {
+            #Do a combination calcuation for distribution of times the node occures exaclty k times
+            $comb = Get-Combination -n $NodeCount -k $occCount
+            #Calculate the percentage of the face occurning on the node
+            $successChance = $matchingFaceCount / $totalFaceCount
+            #Calculate the percentage of the face NOT occurning on the node
+            $failuerChance = ($totalFaceCount - $matchingFaceCount) / $totalFaceCount
+            #Get the percentage chance the face will occure exactly k times.
+            $ExacltyXChance = Get-Binomial -n $NodeCount -k $occCount -p $successChance
+            $ExacltyXChanceSum = $ExacltyXChanceSum + $ExacltyXChance
+            Write-Host "$occCount $face -  comb ($comb) - % chance ($($ExacltyXChance * 100))  % chance sum ($($ExacltyXChanceSum * 100))"
+        }
     }
 }
 
@@ -422,54 +403,6 @@ function Calculate-sub {
 
 
 
-
-##################################################################################################
-# Calculates how many times each face will be the highest and lowest face of a result if 
-#faces are exhausted (removed once drawn like a deck of cards).
-#Formula: 
-# n=nodeCount, f=faceCount, r=rank (1 is the highest ranked card e.g. 1 for the highest card, 2
-# when looking for the next highest, etc.)  It is reversed when looking for the lowest ranked card.
-# Occurances = ((f-r)^(n-1)*n
-function Calculate-HighLowForExhausted {
-
-
-    $faceCount = $script:aryFaces.Count
-    
-    if($MalifauxJokers) {
-        write-host "M jokers" -ForegroundColor red
-
-        $row = Convert-FaceToRow -FaceName "BJ"
-        write-host "BJROW: $row"
-
-        $x = 1
-        $occ = ([math]::Pow($faceCount-$x,$NodeCount -1)) * $NodeCount
-        Incriment-SummaryArray -FaceName "BJ" -OccCount $occ -HighFace -Calculated
-
-
-        for($row = $faceCount -1; $row -ge 1; $row--) {
-            $x = $faceCount - $row +1
-            $occ = ([math]::Pow($faceCount-$x,$NodeCount -1)) * $NodeCount
-            $faceName = $script:aryFaces[$row]
-            Incriment-SummaryArray -FaceName $faceName -OccCount $occ -HighFace -Calculated
-            write-host "$faceName x: $x"   -ForegroundColor red
-        }
-    } else {
-        for($row = $faceCount -1; $row -ge 0; $row--) {
-            $x = $faceCount - $row
-            $occ = ([math]::Pow($faceCount-$x,$NodeCount -1)) * $NodeCount
-            $faceName = $script:aryFaces[$row]
-            Incriment-SummaryArray -FaceName $faceName -OccCount $occ -HighFace -Calculated 
-        }
-    }
-
-
-
-
-
-
-
-
-}
 
 
 
@@ -771,10 +704,10 @@ function Tally-ExactXOrMoreTable{
     #step through each row
     for($row=0; $row -lt $($script:aryUniqueFaces.count); $row++) {
         #step through each node count in that row
-        for($col=1; $col -le $NodeCount; $col++) {
+        for($col=1; $col -le $NodeCount+1; $col++) {
             [int]$rowSum = 0
             #total the node value for the current column and the columns to the right of that cloumn
-            for($shortCol=$col; $shortCol -le $NodeCount; $shortCol++) {
+            for($shortCol=$col; $shortCol -le $NodeCount+1; $shortCol++) {
                 $rowSum = $rowSum + $aryBFExactlyXTable[$row,$shortCol]
             }
             #save the total to the Exact or more table
@@ -786,7 +719,7 @@ function Tally-ExactXOrMoreTable{
 
 
 ##################################################################################################
-# xxx
+# 
 function Incriment-SummaryArray {
     param(
         [string]$FaceName,            #the name of the face to incriment
@@ -805,16 +738,16 @@ function Incriment-SummaryArray {
 
     #update Exaclty X tables
     if ($ExactlyX) {
-        $col = $OccCount
+        $col = $OccCount +1
         $script:aryBFExactlyXTable[$row,$col] = $script:aryBFExactlyXTable[$row,$col] +1
     
     #update X Or Better tables
     } elseif ($OrBetter) {
         if($BruteForce) {
-            $col = $OccCount
+            $col = $OccCount +1
             $script:aryBFOrBetterTable[$row,$col] = $script:aryBFOrBetterTable[$row,$col] +1
         } elseif($Calculated) {
-            $col = $OccCount
+            $col = $OccCount +1
             $script:aryCalcOrBetterTable[$row,$col] = $script:aryCalcOrBetterTable[$row,$col] + $Tally
         }
 
@@ -937,7 +870,7 @@ function Display-OccurnaceSummaryTable {
     if(!$ExactlyX -and !$ExactXOrMore -and !$XOrBetter -and !$HighestFace -and !$LowestFace) {return}
 
     $rowCount = $($script:aryUniqueFaces).count
-    $colCount = $NodeCount +1
+    $colCount = $NodeCount +2
 
     #generate output format
     #initialize the format string
@@ -998,7 +931,7 @@ function Display-OccurnaceSummaryTable {
             if($col -eq 0) {
                 $outData += "Face"
             } else {
-                $outData += $col
+                $outData += $col -1
             }
         }
         write-host 
@@ -1265,7 +1198,7 @@ function Confirm-FacesAreNumeric {
 
 
 ######################################
-# Determine if a string is numeric
+# Return true if a string is numeric
 function isNumeric ($x) {
     try {
         0 + $x | Out-Null
@@ -1279,7 +1212,7 @@ function isNumeric ($x) {
 ######################################
 # Perform Combintaion
 # C(n,k) = n!/k!(n-k)!
-# C = the number of times a given element will be present exaclty k times in all possible outcomes in a set of n elements.
+# C = the number of times a given face will be present exaclty k times in all possible outcomes in a set of n nodes.
 
 function Get-Combination{
     param(
@@ -1296,6 +1229,45 @@ function Get-Combination{
     $c = $nfac / ($kfac * $nMinusKfac)
     return $c
 }
+
+
+
+######################################
+# Perform a Binomial calculation that will return the precentage chance that a face
+# will appear exaclty k times in n nodes when the probability of the face appearing
+# on a given node is p.
+# Binomial = (C(n,k)) * (p^k) * ((1-p)^(n-k))
+# C(n,k) = n!/k!(n-k)!
+# k = the numer of exact time an element will be present
+# n = the number of nodes in the event
+# p = the probability of success (in percent)
+
+function Get-Binomial {
+    param(
+        [int]$n,
+        [int]$k,
+        [single]$p
+    )
+
+
+    #write-host "k (exact count): $k"
+    #write-host "n (nodes):       $n"
+    #write-host "p (success):     $p"
+    
+    #use a combination calculation to get the distribution of k appearing in n
+    [single]$c = Get-Combination -n $n -k $k
+    #the percentage chance of k nodes appearing based on a success rate of p
+    $successes = [math]::pow($p,$k)
+    #the percentage chance of n-k nodes NOT appearing based on a success rate of p
+    $failures = [math]::pow($(1-$p),$($n-$k))
+    #multiple the three expressions for the percentage chance
+    $answer = $c * $successes * $failures
+    return $answer
+
+}
+
+
+
 
 
 ######################################
