@@ -280,12 +280,14 @@ function Create-OccuranceSummaryTables {
     $rowCount = $($script:aryUniqueFaces).count
     $colCount = $NodeCount +1
     
+    #yyy
     #put the face name in the 0 element in the array
     for($row = 0; $row -lt ($script:aryUniqueFaces).count; $row++) {
         $aryBFExactlyXTable[$row,0] = $script:aryUniqueFaces[$row]
         $aryCalcExactlyXTable[$row,0] = $script:aryUniqueFaces[$row]
         $aryBFOrBetterTable[$row,0] = $script:aryUniqueFaces[$row]
         $aryCalcOrBetterTable[$row,0] = $script:aryUniqueFaces[$row]
+        $aryBFExactXOrMoreTable[$row,0] = $script:aryUniqueFaces[$row]
         $aryHighFaceTable[$row,0] = $script:aryUniqueFaces[$row]
         $aryLowFaceTable[$row,0] = $script:aryUniqueFaces[$row]
         #zero the rest of the values in the arrays
@@ -377,7 +379,7 @@ function Calculate-X {
         $matchingFaceCount =  Get-FaceCount -FaceName $face
         #get how many faces the current node has in total
         $totalFaceCount =  $script:aryFaces.Count 
-        write-host "`n$face - FC: $matchingFaceCount / $totalFaceCount - NC : $NodeCount" -ForegroundColor Yellow
+        #write-host "`n$face - FC: $matchingFaceCount / $totalFaceCount - NC : $NodeCount" -ForegroundColor Yellow
         
         #The sum of the chances so far.  Mostly for debugging.  It should sum to 100%
         $ExacltyXChanceSum = 0
@@ -392,11 +394,20 @@ function Calculate-X {
             $failuerChance = ($totalFaceCount - $matchingFaceCount) / $totalFaceCount
             #Get the percentage chance the face will occure exactly k times.
             $ExacltyXChance = Get-Binomial -n $NodeCount -k $occCount -p $successChance
+            $ExacltyXChanceString = Format-AsPercentage -Decimal $ExacltyXChance
+
+            #write the chance to the summary table
+            $row = Convert-FaceToRow -FaceName $face
+            $col = $occCount +1
+            $script:aryCalcExactlyXTable[$row,$col] = [string]$($ExacltyXChanceString )
+
             $ExacltyXChanceSum = $ExacltyXChanceSum + $ExacltyXChance
-            Write-Host "$occCount $face -  comb ($comb) - % chance ($($ExacltyXChance * 100))  % chance sum ($($ExacltyXChanceSum * 100))"
+            #$ExacltyXChanceSumString = Format-AsPercentage $ExacltyXChanceSum
+            #Write-Host "$occCount $face -  comb ($comb) - % chance ($($ExacltyXChanceString))  % chance sum ($($ExacltyXChanceSumString))"
         }
     }
 }
+
 
 
 
@@ -851,7 +862,6 @@ function Display-MathSummaryTable {
 
 ##################################################################################################
 #Displays summary table for Occurnace type tables
-#yyy
 function Display-OccurnaceSummaryTable {
     param(
         [switch]$ExactlyX,              #True if the Exact Occurnaces table should be displayed
@@ -862,14 +872,13 @@ function Display-OccurnaceSummaryTable {
         [switch]$ShowBF,
         [switch]$ShowCalc,
         [switch]$ShowBoth
-        
     )
 
 
     #if no switch is true display nothing
     if(!$ExactlyX -and !$ExactXOrMore -and !$XOrBetter -and !$HighestFace -and !$LowestFace) {return}
 
-    $rowCount = $($script:aryUniqueFaces).count
+    #$rowCount = $($script:aryUniqueFaces).count
     $colCount = $NodeCount +2
 
     #generate output format
@@ -880,7 +889,7 @@ function Display-OccurnaceSummaryTable {
         if($col -eq 0) {
             $outFormat = $outFormat + "{$indexNum,-12} "
         } else {
-            $outFormat = $outFormat + "{$indexNum,-10} "
+            $outFormat = $outFormat + "{$indexNum,-15} "
         }
     }
 
@@ -923,79 +932,110 @@ function Display-OccurnaceSummaryTable {
 
     #Brute Force
     if($ShowBF -or $ShowBoth) {
-        
-        #output header rows
-        $outData = @()     #initialize the data array to output the data
-        $outData += ""
-        for($col=0; $col -lt $colCount;$col++) {
-            if($col -eq 0) {
-                $outData += "Face"
-            } else {
-                $outData += $col -1
-            }
-        }
-        write-host 
-        write-host ("               Occurnaces (Brute Force)") -ForegroundColor yellow
-        write-host ($outFormat -f $outData) -ForegroundColor green
+        Display-OccurnaceSummaryTableHeader -BruteForce
+        Display-OccurnaceSummaryTableRows -BruteForce
 
-        #generate and output one row of data for each row
-        for($row=0; $row -lt $rowCount;$row++) {
-            $outData = @()     #initialize the data array to output the data
-            $outData += ""
-            for($col=0; $col -lt $colCount;$col++) {
-                if($XOrBetter) {
-                    $outData += $script:aryBFOrBetterTable[$row,$col]
-                } elseif($ExactXOrMore) {
-                    $outData += $script:aryBFExactXOrMoreTable[$row,$col]
-                } elseif($ExactlyX) {
-                    $outData += $script:aryBFExactlyXTable[$row,$col]
-                } elseif($LowestFace) {
-                    $outData += $script:aryLowFaceTable[$row,$col]
-                } elseif($HighestFace) {
-                    $outData += $script:aryHighFaceTable[$row,$col]
-                }
-            }
-            #output the formatted line of data
-            write-host ($outFormat -f $outData)
-        }
     }
 
 
     #Calculated 
     if($ShowCalc -or $ShowBoth) {
-        #output header rows
-        $outData = @()     #initialize the data array to output the data
-        $outData += ""
-        for($col=0; $col -lt $colCount;$col++) {
-            if($col -eq 0) {
-                $outData += "Face"
-            } else {
-                $outData += $col
-            }
-        }
-        write-host 
-        write-host ("               Occurnaces (Calculated)") -ForegroundColor green
-        write-host ($outFormat -f $outData) -ForegroundColor green
-        
-        #generate and output one row of data for each row
-        for($row=0; $row -lt $rowCount;$row++) {
-            $outData = @()     #initialize the data array to output the data
-            $outData += ""
-            for($col=0; $col -lt $colCount;$col++) {
-                if($XOrBetter) {
-                    $outData += $script:aryCalcOrBetterTable[$row,$col]
-                } elseif($ExactlyX) {
-                    $outData += $script:aryCalcExactlyXTable[$row,$col]
-                }
-            }
-            #output the formatted line of data
-            write-host ($outFormat -f $outData)
-        }
+        Display-OccurnaceSummaryTableHeader -Calculated
+        Display-OccurnaceSummaryTableRows -Calculated
     }
 }
     
 
+#displays the header row of an Occurance Summary Table
+function  Display-OccurnaceSummaryTableHeader {
+    param(
+        [switch]$Calculated,
+        [switch]$BruteForce
+    )
 
+    #output header rows
+    $outData = @()     #initialize the data array to output the data
+    $outData += ""
+    for($col=0; $col -lt $colCount;$col++) {
+        if($col -eq 0) {
+            $outData += "Face"
+        } else {
+            $outData += $col -1
+        }
+    }
+    write-host 
+    if($Calculated) {
+        write-host ("               Occurnaces (Calculated)") -ForegroundColor green
+        write-host ($outFormat -f $outData) -ForegroundColor green
+    }elseif($BruteForce){
+        write-host ("               Occurnaces (Brute Force)") -ForegroundColor yellow
+        write-host ($outFormat -f $outData) -ForegroundColor Yellow
+    }
+}
+
+
+
+
+#Displays the rows of an Occurance Summary Table
+function Display-OccurnaceSummaryTableRows {
+    param(
+        [switch]$Calculated,
+        [switch]$BruteForce
+    )
+
+    #xxx
+    $rowCount = $($script:aryUniqueFaces).count
+    for($row=0; $row -lt $rowCount;$row++) {
+        $outData = @()     #initialize the data array to output the data
+        $outData += ""
+        for($col=0; $col -lt $colCount;$col++) {
+
+            if($ExactlyX) {
+                if($Calculated){
+                    $value = $script:aryCalcExactlyXTable[$row,$col]
+                } elseif($BruteForce) {
+                    $value = $script:aryBFExactlyXTable[$row,$col]
+                } else {
+                    $value = "-"
+                }
+
+            } elseif($ExactXOrMore) {
+                $value = $script:aryBFExactXOrMoreTable[$row,$col]
+
+            } elseif($XOrBetter) {
+                if($Calculated){
+                    $value = $script:aryCalcOrBetterTable[$row,$col]
+                } elseif($BruteForce) {
+                    $value = $script:aryBFOrBetterTable[$row,$col]
+                } else {
+                    $value = "-"
+                }
+
+            } elseif($LowestFace) {
+                $value = $script:aryLowFaceTable[$row,$col]
+
+            } elseif($HighestFace) {
+                $value = $script:aryHighFaceTable[$row,$col]
+            }
+
+
+            #process the value
+            if($($col -gt 0) -and $(isNumeric $value)) {
+                $percentage = Format-AsPercentage -Numerator $value -Denominator $($script:resultID +1) 
+                $outPut = "$value ($percentage)"
+                $outPut = "$percentage ($value)"
+            }else{
+                $outPut = $value
+            }
+
+            #put the output int he output display array
+            $outData += $outPut
+
+        }
+        #output the formatted line of data
+        write-host ($outFormat -f $outData) 
+    }
+}
 
 
 ##################################################################################################
@@ -1025,8 +1065,6 @@ function Display-ScenarioData {
 
     Write-Host ($outFormat -f "","Face Count:",$($($script:aryFaces).count)) 
     Write-Host ($outFormat -f "","Result Count:",$($script:resultID +1))  
-    
-
 
     $runTime = $(Get-Date) - $startTime
     Write-Host ($outFormat -f "","Run Time:",$runTime)  
@@ -1075,6 +1113,58 @@ function Display-Tables {
 ##################################################################################################
 # Helper Functions
 ##################################################################################################
+
+##################################################################################################
+#Formats decimals as percentages
+function Format-AsPercentage {
+
+    param (
+        [single]$Decimal,       #Enter are decimal number to be formatted OR
+        [int]$Numerator,        #Enter a fraction to be formatted
+        [int]$Denominator,
+        [int]$Digits=2          #How many digits to leave after the decimal place
+        )
+
+        
+
+    if($Denominator -gt 0) {
+        $decimal = $Numerator / $Denominator
+    }
+
+    
+    #string Formating
+    $Decimal = $Decimal * 100
+    $Decimal = [math]::round($Decimal,$Digits)
+    [string]$DecimalString = [string]$Decimal
+
+    #pad with 0's or spaces
+    if($DecimalString -eq "0"){
+        $percentString = "    0"
+    }elseif($DecimalString -eq "100"){
+        $percentString = "  100"
+    }else{
+        $x = $DecimalString.Split(".")
+        if     ($x[0].Length -eq 0) { $x[0] = "  " }
+        elseif ($x[0].Length -eq 1) { $x[0] = " " + $x[0] }
+
+        if     ($x[1].Length -eq 0) { $x += "00" }
+        elseif ($x[1].Length -eq 1) { $x[1] = $x[1] + "0" }
+
+        $percentString = $x[0] + "." + $x[1] 
+    }
+
+    #add the percent sign
+    if($percentString.IndexOf("%") -eq -1) {
+        $percentString = $percentString + "%"
+
+    }
+
+    #return the string
+    return $percentString 
+}
+
+
+
 
 
 
