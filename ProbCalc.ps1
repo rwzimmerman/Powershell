@@ -375,35 +375,29 @@ function Calculate-X {
 
     foreach($face in $script:aryUniqueFaces) {
 
-        #Get how many times the current face occures on the node
-        $matchingFaceCount =  Get-FaceCount -FaceName $face
-        #get how many faces the current node has in total
-        $totalFaceCount =  $script:aryFaces.Count 
-        #write-host "`n$face - FC: $matchingFaceCount / $totalFaceCount - NC : $NodeCount" -ForegroundColor Yellow
+        #Get node and face counts
+        $matchingFaceCount =  Get-FaceCount -FaceName $face          #How many faces Match the current face
+        $orBetterFaceCount = Get-OrBetterFaceCount -FaceName $face   #How many faces Match or are better than the current face
+        $totalFaceCount =  $script:aryFaces.Count                    #How many faces the node has
         
-        #The sum of the chances so far.  Mostly for debugging.  It should sum to 100%
-        $ExacltyXChanceSum = 0
 
-        #step the number of time the face can occure (0 to the node count)
+        #Step through the node count, calculating the probabilty that the node will occure n times
+        #where n is 0 to the number of possible nodes.
+        #e.g. if there are three 6-sided dice loop thorough calculating the odds of rolling
+        # zero 6's, one 6, two 6's, and three 6's.
         for($occCount = 0; $occCount -le $NodeCount; $occCount++) {
             #Do a combination calcuation for distribution of times the node occures exaclty k times
             $comb = Get-Combination -n $NodeCount -k $occCount
-            #Calculate the percentage of the face occurning on the node
             $successChance = $matchingFaceCount / $totalFaceCount
-            #Calculate the percentage of the face NOT occurning on the node
-            $failuerChance = ($totalFaceCount - $matchingFaceCount) / $totalFaceCount
-            #Get the percentage chance the face will occure exactly k times.
             $ExacltyXChance = Get-Binomial -n $NodeCount -k $occCount -p $successChance
             $ExacltyXChanceString = Format-AsPercentage -Decimal $ExacltyXChance
-
             #write the chance to the summary table
             $row = Convert-FaceToRow -FaceName $face
             $col = $occCount +1
-            $script:aryCalcExactlyXTable[$row,$col] = [string]$($ExacltyXChanceString )
+            $script:aryCalcExactlyXTable[$row,$col] = [string]$($ExacltyXChanceString)
 
-            $ExacltyXChanceSum = $ExacltyXChanceSum + $ExacltyXChance
-            #$ExacltyXChanceSumString = Format-AsPercentage $ExacltyXChanceSum
-            #Write-Host "$occCount $face -  comb ($comb) - % chance ($($ExacltyXChanceString))  % chance sum ($($ExacltyXChanceSumString))"
+
+
         }
     }
 }
@@ -440,7 +434,7 @@ function Generate-BruteForceResult {
         if($NodeCount -gt $nodeNum) {
             $nextNode = $nodeNum +1
 
-            #if exhause faces is set then remove the current face from the pool for later draws
+            #if exhaust faces is set then remove the current face from the pool for later draws
             if($ExhaustFaces) {
                 $nextDrawPool = Create-DrawPool -PoolIn $DrawPool -RemoveFace  $face
             } else {
@@ -451,7 +445,7 @@ function Generate-BruteForceResult {
             $script:resultID = $script:resultID +1
             Write-Progress -Activity "Generating Results" -status "Result $script:resultID of $script:estResultCount" -percentComplete ($script:resultID / $script:estResultCount * 100)
             #Display-CurrentRestult
-            Analyze-Restult 
+            Analyze-Result 
         }
     }
 }
@@ -488,13 +482,13 @@ function Create-DrawPool {
 #Looks at the current result and writes data to the summary tables
 #
 
-function Analyze-Restult {
+function Analyze-Result {
     if($showProcessing) {write-host ""}
 
     #only analyze for a result if it will be displayed
-    if($ShowAllTables -or $ShowExacts)    {Analyze-RestultForExactlyX}
-    if($ShowAllTables -or $ShowOrBetter)  {Analyze-RestultForOrBetter}
-    if($ShowAllTables -or $ShowHighLow)   {Analyze-RestultForHighAndLowFace}
+    if($ShowAllTables -or $ShowExacts)    {Analyze-ResultForExactlyX}
+    if($ShowAllTables -or $ShowOrBetter)  {Analyze-ResultForXOrBetter}
+    if($ShowAllTables -or $ShowHighLow)   {Analyze-ResultForHighAndLowFace}
     if($ShowSums)      {Analyze-ResultForMathValues}
 }
 
@@ -538,9 +532,9 @@ function Analyze-ResultForMathValues {
 ##################################################################################################
 #Looks at the current result and writes data to the exact occurance table
 #An exact occurance would be how many times do exaclty two 6' occure.
-function Analyze-RestultForExactlyX {
+function Analyze-ResultForExactlyX {
 
-    if($showProcessing) {write-host "  Analyze-RestultForExactlyX" -ForegroundColor green }
+    if($showProcessing) {write-host "  Analyze-ResultForExactlyX" -ForegroundColor green }
     
     foreach ($face in $script:aryUniqueFaces){
         $occurances = 0
@@ -549,10 +543,8 @@ function Analyze-RestultForExactlyX {
                 $occurances++
             }
         }
-        if($occurances -gt 0) {
-            #update the exact occurnace array
-            Incriment-SummaryArray -FaceName $face -OccCount $occurances -ExactlyX
-        }
+        #update the exact occurnace array
+        Incriment-SummaryArray -FaceName $face -OccCount $occurances -ExactlyX
     }
 }
 
@@ -564,9 +556,9 @@ function Analyze-RestultForExactlyX {
 #Looks at the current result and writes data to the 'X or better' table
 #This is the first step in the table the coumns need to be summed for
 #that data to be meaniningful
-function Analyze-RestultForHighAndLowFace {
+function Analyze-ResultForHighAndLowFace {
 
-    if($showProcessing) {write-host "  Analyze-RestultForOrBetter" -ForegroundColor green }
+    if($showProcessing) {write-host "  Analyze-ResultForXOrBetter" -ForegroundColor green }
 
     #Create a copy of the current result and convert the faces to numbers
     $aryResultAsRows = @()
@@ -629,15 +621,15 @@ function Analyze-RestultForHighAndLowFace {
 #Looks at the current result and writes data to the 'X or better' table
 #This is the first step in the table the coumns need to be summed for
 #that data to be meaniningful
-function Analyze-RestultForOrBetter {
+function Analyze-ResultForXOrBetter {
 
-    if($showProcessing) {write-host "  Analyze-RestultForOrBetter" -ForegroundColor green }
+    if($showProcessing) {write-host "  Analyze-ResultForXOrBetter" -ForegroundColor green }
 
     #Create a copy of the current result and convert the faces to numbers
     $aryResultAsRows = @()
     for($i = 0; $i -lt $script:aryResult.count; $i++) {
         $row = Convert-FaceToRow -FaceName $script:aryResult[$i]
-        $aryResultAsRows += $row
+        $aryResultAsRows += $row 
     }
 
     #sort the array so lowest result is first
@@ -1165,6 +1157,28 @@ function Format-AsPercentage {
 
 
 
+##################################################################################################
+#Returns the number of times a face, an equivalent or better occurs in the face array.
+function Get-OrBetterFaceCount {
+    param(
+        [string]$FaceName          #The name of the face to count
+    )
+
+    $faceCount = 0
+    $faceMatch = $false
+
+    #incriment the OrBetterFaceCount if the current or a previous face matched
+    for($i = 0;$i -lt $script:aryFaces.Count;$i++){
+        if($($script:aryFaces[$i] -eq $FaceName) -or $faceMatch) {
+            $faceMatch = $true
+            $faceCount = $faceCount +1
+        }
+    }
+
+    return $faceCount
+
+
+}
 
 
 
