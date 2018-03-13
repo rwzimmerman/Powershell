@@ -89,6 +89,7 @@ param(
     [switch]$d10,                   #
     [switch]$d12,                   #
     [switch]$d20,                   #
+    [switch]$dx,                   #
     [switch]$Coin,                  #
     #Options
     [string[]]$Faces,               #    
@@ -114,17 +115,20 @@ $aryResult = @()              #This array is the current result
 #$aryBFExactXOrMoreTable = @()      #
 #$aryBFOrBetterTable = @()          #
 
-#$aryCalcExactlyXTable = @()          #
+#$aryCalcExactlyXTable = @()        #
+#$aryCalcExactXOrMoreTable = @()      #
 #$aryCalcOrBetterTable = @()        #
 
-#$aryExactSumTable = @()            #
-#$arySumOrMoreTable = @()           #
 #$aryHighFaceTable = @()            #
 #$aryLowFaceTable = @()             #
+
+#$arySumsTable = @()
+
 
 #Variables
 $resultID = -1                  #The current result
 $showProcessing = $false        #True if processing info should be displayed to the screen
+$script:sumsWidth = 1           #default value will be reset if numeric dice are used
 
 
 
@@ -189,6 +193,10 @@ if($XWingAtt) {
     $systemName = "d20"
     $aryFaces = @(1,2,3,4,5,6,7,8,9,10,11,1213,14,15,16,17,18,19,20)
     $ShowSums=$true
+}elseif($dx) {
+    $systemName = "dx"
+    $aryFaces = @(1,3,5,7,9,10,11)
+    $ShowSums=$true
 }elseif($Test) {
     $systemName = "Test Data"
     $ExhaustFaces=$true
@@ -219,7 +227,7 @@ $estResultCount = [math]::pow($aryFaces.count,$NodeCount)
 ##################################################################################################
 
 ##################################################################################################
-# Initializes the result array giving it the prober number of elements
+# Initializes the result array giving it the proper number of elements
 function Create-RestultArray {
     
     if($showProcessing) {write-host "  Create-RestultArray" -ForegroundColor green }
@@ -270,6 +278,7 @@ function Create-OccuranceSummaryTables {
     $script:aryBFExactXOrMoreTable = New-Object 'object[,]' $faceCount,$([int]$NodeCount+2)
 
     $script:aryCalcExactlyXTable = New-Object 'object[,]' $faceCount,$([int]$NodeCount+2)
+    $script:aryCalcExactXOrMoreTable = New-Object 'object[,]' $faceCount,$([int]$NodeCount+2)
     $script:aryCalcOrBetterTable = New-Object 'object[,]' $faceCount,$([int]$NodeCount+2)
 
     $script:aryHighFaceTable = New-Object 'object[,]' $faceCount,$([int]$NodeCount+2)
@@ -285,6 +294,7 @@ function Create-OccuranceSummaryTables {
     for($row = 0; $row -lt ($script:aryUniqueFaces).count; $row++) {
         $aryBFExactlyXTable[$row,0] = $script:aryUniqueFaces[$row]
         $aryCalcExactlyXTable[$row,0] = $script:aryUniqueFaces[$row]
+        $aryCalcExactXOrMoreTable[$row,0] = $script:aryUniqueFaces[$row]
         $aryBFOrBetterTable[$row,0] = $script:aryUniqueFaces[$row]
         $aryCalcOrBetterTable[$row,0] = $script:aryUniqueFaces[$row]
         $aryBFExactXOrMoreTable[$row,0] = $script:aryUniqueFaces[$row]
@@ -294,6 +304,7 @@ function Create-OccuranceSummaryTables {
         for($col = 1; $col -le $([int]$NodeCount)+1; $col++) {
             $aryBFExactlyXTable[$row,$col] = 0
             $aryCalcExactlyXTable[$row,$col] = 0
+            $aryCalcExactXOrMoreTable[$row,$col] = 0
             $aryBFOrBetterTable[$row,$col] = 0
             $aryCalcOrBetterTable[$row,$col] = 0
             $aryBFExactXOrMoreTable[$row,$col] = 0
@@ -309,12 +320,14 @@ function Create-OccuranceSummaryTables {
 
 
 
+
+
 ##################################################################################################
-#
-function Create-MathSummaryTables {
-
-
-    if($showProcessing) {write-host "  Create-MathSummaryTables" -ForegroundColor green }
+#xxx
+function Create-MathSummaryTable {
+    
+    
+    if($showProcessing) {write-host "  Create-MathSummaryTable" -ForegroundColor green }
     
     #find highest and lowest numeric value on a face
     [int]$highestFace = $aryUniqueFaces[0]
@@ -328,34 +341,43 @@ function Create-MathSummaryTables {
     [int]$highestSum = $NodeCount * $highestFace
     [int]$script:lowestTotal = $NodeCount * $LowestFace
     
-    #create the tables 
-    $script:aryExactSumTable = New-Object 'object[,]' $($highestSum +1),2
-    $script:arySumOrMoreTable = New-Object 'object[,]' $($highestSum +1),2
+    #the columns
+    $script:sumsColName = 0
+    $script:sumsColExactBF = 1
+    $script:sumsColExactCalc = 2
+    $script:sumsColOrMoreBF = 3
+    $script:sumsColOrMoreCalc = 4
+    $script:sumsColOrLessBF = 5
+    $script:sumsColOrLessCalc = 6
+    $script:sumsWidth = 7
 
+    #create the table
+    $script:arySumsTable = New-Object 'object[,]' $($highestSum +1),$script:sumsWidth
+    
     #fill arrays with initial values
-    $aryCount = $($script:aryExactSumTable).count /2
-    for($i = 0; $i -lt $aryCount; $i++ ) {
-        #exact total array
-        $script:aryExactSumTable[$i,0] = $i
-        $script:aryExactSumTable[$i,1] = 0
-        #total or better array
-        $script:arySumOrMoreTable[$i,0] = $i
-        $script:arySumOrMoreTable[$i,1] = 0
+    $aryCount = $($script:arySumsTable).count / $script:sumsWidth
+    
+    for($row = 0; $row -lt $aryCount; $row++ ) {
+        #column 0 is the "sum name" e.g. the total of all faces
+        $script:arySumsTable[$row,$script:sumsColName] = $row
+        for($col = 1; $col -lt $script:sumsWidth; $col++) {
+            #The rest of the colums count occurnaces and will be set to 0
+            $script:arySumsTable[$row,$col] = 0
+        }
     }
 }
 
-
+        
 ##################################################################################################
 # Calcuations functions
 ##################################################################################################
 
 function Calculate-TheoreticalResults {
 
-    write-host "Calculate" -ForegroundColor Red
 
 
 
-    Calculate-X
+    Calculate-ExactlyX
 
 
 
@@ -369,8 +391,8 @@ function Calculate-TheoreticalResults {
 
 
 ##################################################################################################
-# xxxxxx
-function Calculate-X {
+# 
+function Calculate-ExactlyX {
 
 
     foreach($face in $script:aryUniqueFaces) {
@@ -394,8 +416,9 @@ function Calculate-X {
             #write the chance to the summary table
             $row = Convert-FaceToRow -FaceName $face
             $col = $occCount +1
-            $script:aryCalcExactlyXTable[$row,$col] = [string]$($ExacltyXChanceString)
-
+            #$script:aryCalcExactlyXTable[$row,$col] = [string]$($ExacltyXChanceString)
+            $script:aryCalcExactlyXTable[$row,$col] = $ExacltyXChance
+            
 
 
         }
@@ -501,7 +524,7 @@ function Tally-SummaryTables{
     if($ShowAllTables -or $ShowExacts)    {Tally-ExactXOrMoreTable}
     if($ShowAllTables -or $ShowOrBetter)  {Tally-OrBetterTable}
     if($ShowAllTables -or $ShowHighLow)   {}
-    if($ShowSums)      {Tally-SumOrMoreTable}
+    if($ShowSums)      {Tally-SumOrMoreColumn}
 }
 
 
@@ -521,9 +544,9 @@ function Analyze-ResultForMathValues {
     }
 
     #incriment the Exact value array
-    $script:aryExactSumTable[$total,1] = $script:aryExactSumTable[$total,1] +1
-    $script:arySumOrMoreTable[$total,1] = $script:arySumOrMoreTable[$total,1] +1
-    
+    $script:arySumsTable[$total,$script:sumsColExactBF] = $script:arySumsTable[$total,$script:sumsColExactBF] +1
+    $script:arySumsTable[$total,$script:sumsColOrMoreBF] = $script:arySumsTable[$total,$script:sumsColOrMoreBF] +1
+    $script:arySumsTable[$total,$script:sumsColOrLessBF] = $script:arySumsTable[$total,$script:sumsColOrLessBF] +1
 }
 
 
@@ -669,25 +692,25 @@ function Tally-OrBetterTable {
 
 
 ##################################################################################################
-#
-function Tally-SumOrMoreTable {
+#xxx
+function Tally-SumOrMoreColumn {
 
 
-    if($showProcessing) {write-host "  Tally-SumOrMoreTable" -ForegroundColor green }
+    if($showProcessing) {write-host "  Tally-SumOrMoreColumn" -ForegroundColor green }
 
-    $CountColumn = 1         #The column holding the number of matchinc occurances
+    $CountColumn = $script:sumsColOrMoreBF        #The column holding the number of matching occurances
 
     #get the number of rows to process
-    $rowCount = $script:arySumOrMoreTable.Count /2
-
+    $rowCount = $($script:arySumsTable).count / $script:sumsWidth
+    
     #Step through each row
     for($row = 0; $row -le $rowCount; $row++) {
         #Step through each row after the current row
         for($shortRow = $row +1; $shortRow -le $rowCount; $shortRow++) {
             #If the current row's total is more than 0 then all higher results to this occurance total since they are "more"
             #IF the current row's total is 0 then is is not a possible result and should stay at 0 occurances
-            if ($script:arySumOrMoreTable[$Row,$CountColumn] -gt 0) {
-               $script:arySumOrMoreTable[$Row,$CountColumn] = $script:arySumOrMoreTable[$Row,$CountColumn] + $($script:arySumOrMoreTable[$shortRow,$CountColumn])
+            if ($script:arySumsTable[$Row,$CountColumn] -gt 0) {
+               $script:arySumsTable[$Row,$CountColumn] = $script:arySumsTable[$Row,$CountColumn] + $($script:arySumsTable[$shortRow,$CountColumn])
             }
         }
     }
@@ -708,13 +731,16 @@ function Tally-ExactXOrMoreTable{
     for($row=0; $row -lt $($script:aryUniqueFaces.count); $row++) {
         #step through each node count in that row
         for($col=1; $col -le $NodeCount+1; $col++) {
-            [int]$rowSum = 0
+            [int]$BFSum = 0
+            [single]$CalcSum = 0
             #total the node value for the current column and the columns to the right of that cloumn
             for($shortCol=$col; $shortCol -le $NodeCount+1; $shortCol++) {
-                $rowSum = $rowSum + $aryBFExactlyXTable[$row,$shortCol]
+                $BFSum = $BFSum + $aryBFExactlyXTable[$row,$shortCol]
+                $CalcSum = $CalcSum + $aryCalcExactlyXTable[$row,$shortCol]
             }
             #save the total to the Exact or more table
-            $aryBFExactXOrMoreTable[$row,$col] = $rowSum
+            $aryBFExactXOrMoreTable[$row,$col] = $BFSum
+            $aryCalcExactXOrMoreTable[$row,$col] = $CalcSum
         }
     }
 }
@@ -801,54 +827,57 @@ function Display-CurrentRestult {
         Write-host $output -ForegroundColor Yellow
     }
     
+
+
+
 ##################################################################################################
 #Displays summary table for Math type tables
-#
+#xxx
 function Display-MathSummaryTable {
-    param(
-        [switch]$ExactTotal,
-        [switch]$TotalOrMore
-    )
 
 
-    $outFormat = "{0,-1} {1,-10} {2,-10}"
+    $outFormat = "{0,-1} {1,-8} {2,-10} {3,-8} {4,-10} {5,-8} {6,-10} {7,-8}"
+    $outFormat = "{0,-1} {1,-10} {2,-10} {3,-10} {4,-10} {5,-10} {6,-10} {7,-10}"
+    $outFormat = "{0,-1} {1,-10} {2,-6} {3,-10} {4,-6} {5,-10} {6,-6} {7,-10}"
     
 
-    #output the formatted line of data
-    if($ExactTotal) {
-        $outTableTitle = "Exact Sum"
-        $outDescritption = "How many times sum of the dice is exactly X (e.g. the dice sum to exacly 6)."
-    } elseif($TotalOrMore) {
-        $outTableTitle = "Sum Or Better"
-        $outDescritption = "How many times sum of the dice is X or more (e.g. the dice sum to 6+)."
-    }
+    
 
 
     write-host
     write-host "------------------------------------------------------------------------------" -ForegroundColor green
-    write-host "$outTableTitle ($($script:resultID +1) Possible Outcomes)" -ForegroundColor green
-    write-host "$outDescritption"   -ForegroundColor green
+    write-host "Sums Table ($($script:resultID +1) Possible Outcomes)" -ForegroundColor green
+    write-host "Diplays information on the sum of all dice in the pool"   -ForegroundColor green
+    write-host "  Equal:   How often the sum exactly equals the value."  -ForegroundColor green
+    write-host "  Or Mor:  How often the sum equals the value or more."  -ForegroundColor green
+    write-host "  Or Less: How often the sum equals the value or less."  -ForegroundColor green
     write-host "------------------------------------------------------------------------------" -ForegroundColor green
-    write-host ($outFormat -f "","Total","Occ") 
+    write-host ("{0,-1} {1,-10} {2,-17} {3,-17} {4,-17}" -f "", "", "--Exact--", "--Or More--", "--Or Less--") 
+    write-host ($outFormat -f "", "Sum", "BF", "Cacl", "BF", "Cacl", "BF", "Cacl" ) 
     
 
-    $arySize = $($script:aryExactSumTable).count /2
-    if($ExactTotal){
-        for($i = 0; $i -lt $arySize; $i++) {
-            if(($aryExactSumTable[$i,1]) -gt 0) {
-                write-host ($outFormat -f "",$($aryExactSumTable[$i,0]), $($aryExactSumTable[$i,1])) 
-            }
-        }
-    }
+    $aryCount = $($script:arySumsTable).count / $script:sumsWidth
+    
+    for($row = 0; $row -lt $aryCount; $row++ ) {
+        $name = $script:arySumsTable[$row,$script:sumsColName]
+        $exactBF = $script:arySumsTable[$row,$script:sumsColExactBF]
+        $exactCalc = $script:arySumsTable[$row,$script:sumsColExactCalc]
+        $orMoreBF = $script:arySumsTable[$row,$script:sumsColOrMoreBF]
+        $orMoreCalc = $script:arySumsTable[$row,$script:sumsColOrMoreCalc]
+        $orLessBF = $script:arySumsTable[$row,$script:sumsColOrLessBF]
+        $orLessCalc = $script:arySumsTable[$row,$script:sumsColOrLessCalc]
 
-    if($TotalOrMore){
-        for($i = 0; $i -lt $arySize; $i++) {
-            if(($arySumOrMoreTable[$i,1]) -gt 0) {
-                write-host ($outFormat -f "",$($arySumOrMoreTable[$i,0]), $($arySumOrMoreTable[$i,1])) 
-            }
+        #if any of the values are not 0 then display the result
+        if($($exactBF + $exactCalc + $orMoreBF + $orMoreCalc + $orLessBF + $orLessCalc) -gt 0){
+            write-host ($outFormat -f "", $name, $exactBF, $exactCalc, $orMoreBF, $orMoreCalc, $orLessBF, $orLessCalc) 
         }
     }
 }
+
+
+
+
+
 
 
 
@@ -900,12 +929,12 @@ function Display-OccurnaceSummaryTable {
         $outDescritption2 = "Good for dice pools like X-Wing where Hits and Crits (and maybe Focuses) damage ships."
     } elseif($HighestFace) {
         $outTableTitle = "Highest Face"
-        $outDescritption = "HighestFace"
+        $outDescritption = "The chances that the face is the highest face in the occurance"
         $outDescritption2 = "HighestFace"
     } elseif($LowestFace) {
         $outTableTitle = "Lowest Face"
-        $outDescritption = "LowestFace"
-        $outDescritption2 = "LowestFace"
+        $outDescritption = "The chances that the face is the lowest face in the occurance"
+        $outDescritption2 = ""
     }
 
 
@@ -975,48 +1004,94 @@ function Display-OccurnaceSummaryTableRows {
         [switch]$BruteForce
     )
 
-    #xxx
     $rowCount = $($script:aryUniqueFaces).count
     for($row=0; $row -lt $rowCount;$row++) {
         $outData = @()     #initialize the data array to output the data
         $outData += ""
         for($col=0; $col -lt $colCount;$col++) {
-
+            $valueType = "count"  #assume the value in the array is the 'count' of how many times the face occurs
+                                  #change this value to 'percentage' if the array contains a percentage instead
+                                  #change this value to 'string' for string output
+            
             if($ExactlyX) {
                 if($Calculated){
                     $value = $script:aryCalcExactlyXTable[$row,$col]
+                    $valueType = "percentage" 
                 } elseif($BruteForce) {
                     $value = $script:aryBFExactlyXTable[$row,$col]
                 } else {
                     $value = "-"
+                    $valueType = "string" 
                 }
 
             } elseif($ExactXOrMore) {
-                $value = $script:aryBFExactXOrMoreTable[$row,$col]
+                if($Calculated){
+                    $value = $script:aryCalcExactXOrMoreTable[$row,$col]
+                    $valueType = "percentage" 
+                } elseif($BruteForce) {
+                    $value = $script:aryBFExactXOrMoreTable[$row,$col]
+                } else {
+                    $value = "-"
+                    $valueType = "string" 
+                }
 
             } elseif($XOrBetter) {
                 if($Calculated){
                     $value = $script:aryCalcOrBetterTable[$row,$col]
+                    $valueType = "percentage" 
                 } elseif($BruteForce) {
                     $value = $script:aryBFOrBetterTable[$row,$col]
                 } else {
                     $value = "-"
+                    $valueType = "string" 
                 }
 
             } elseif($LowestFace) {
-                $value = $script:aryLowFaceTable[$row,$col]
+                if($Calculated){
+                    #No Table Yet
+                    $value = "-"
+                    $valueType = "string" 
+                } elseif($BruteForce) {
+                    $value = $script:aryLowFaceTable[$row,$col]
+                } else {
+                    $value = "-"
+                    $valueType = "string" 
+                }
 
             } elseif($HighestFace) {
-                $value = $script:aryHighFaceTable[$row,$col]
+                if($Calculated){
+                    #No Table Yet
+                    $value = "-"
+                    $valueType = "string" 
+                } elseif($BruteForce) {
+                    $value = $script:aryHighFaceTable[$row,$col]
+                } else {
+                    $value = "-"
+                    $valueType = "string" 
+                }
             }
 
 
             #process the value
-            if($($col -gt 0) -and $(isNumeric $value)) {
+
+
+
+            if($col -eq 0){
+                #the 0 element in each array in the face name
+                $outPut = $value
+            }elseif($value -eq "string") {
+                #if the value is a string output it as is
+                $outPut = $value
+            }elseif($valueType -eq "count") {
+                #if the value is a numerator, get the denominator and covert to a percentage for display
                 $percentage = Format-AsPercentage -Numerator $value -Denominator $($script:resultID +1) 
-                $outPut = "$value ($percentage)"
                 $outPut = "$percentage ($value)"
+            }elseif($valueType -eq "percentage") {
+                #if the value is in percent form then out put it
+                $value = Format-AsPercentage -Decimal $value
+                $outPut = $value
             }else{
+                #default
                 $outPut = $value
             }
 
@@ -1080,7 +1155,7 @@ function Display-Tables {
 
     if($ShowAllTables -or $ShowExacts) {
         Display-OccurnaceSummaryTable -ExactlyX -ShowBoth
-        Display-OccurnaceSummaryTable -ExactXOrMore -ShowBF
+        Display-OccurnaceSummaryTable -ExactXOrMore -ShowBoth
     }
 
     if($ShowAllTables -or $ShowOrBetter) {
@@ -1093,9 +1168,11 @@ function Display-Tables {
     }
 
     if($ShowAllTables -or $ShowSums) {
-        Display-MathSummaryTable -ExactTotal
-        Display-MathSummaryTable -TotalOrMore
+        Display-MathSummaryTable
     }
+
+
+
 
 
 }
@@ -1402,12 +1479,29 @@ function Get-Factorial {
 
 ######################################
 # Setup
-write-host
-write-host
-write-host
-write-host
-write-host
-write-host
+write-host '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++'
+write-host '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++'
+write-host '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++'
+write-host '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++'
+write-host '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++'
+write-host '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++'
+write-host '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++'
+write-host '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++'
+write-host '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++'
+write-host '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++'
+write-host '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++'
+write-host '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++'
+write-host '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++'
+write-host '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++'
+write-host '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++'
+write-host '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++'
+write-host '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++'
+write-host '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++'
+write-host '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++'
+write-host '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++'
+write-host '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++'
+write-host '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++'
+write-host '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++'
 write-host
 write-host
 if($showProcessing) {write-host "" -ForegroundColor green }
@@ -1422,7 +1516,7 @@ if($ShowSums -or $ShowAllTables) {
     Confirm-FacesAreNumeric
 }
 if($ShowSums) {
-    Create-MathSummaryTables
+    Create-MathSummaryTable
 }
 
 
