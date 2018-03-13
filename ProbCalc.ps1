@@ -191,7 +191,7 @@ if($XWingAtt) {
     $ShowSums=$true
 }elseif($d20) {
     $systemName = "d20"
-    $aryFaces = @(1,2,3,4,5,6,7,8,9,10,11,1213,14,15,16,17,18,19,20)
+    $aryFaces = @(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20)
     $ShowSums=$true
 }elseif($dx) {
     $systemName = "dx"

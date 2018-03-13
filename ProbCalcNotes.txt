@@ -13,6 +13,3 @@ Exact Sum Or Better	BF
 
 
 
-#$aryExactSumTable = @()            #
-#$arySumOrMoreTable = @()           #
-
