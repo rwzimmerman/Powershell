@@ -838,7 +838,6 @@ function Display-CurrentRestult {
 
 ##################################################################################################
 #Displays summary table for Math values
-#
 function Display-MathSummaryTable {
 
     #the total number of possible outcomes a given scenario can produce
@@ -852,12 +851,13 @@ function Display-MathSummaryTable {
     write-host "------------------------------------------------------------------------------" -ForegroundColor green
     write-host "Sums Table ($possibleOutcomes) Possible Outcomes)" -ForegroundColor green
     write-host "Diplays information on the sum of all dice in the pool"   -ForegroundColor green
-    write-host "  Equal To:   How often the sum exactly equals the value."  -ForegroundColor green
-    write-host "  Or More:  How often the sum equals the value or more."  -ForegroundColor green
-    write-host "  Or Less: How often the sum equals the value or less."  -ForegroundColor green
+    write-host "  Equal To: How often the sum exactly equals the value."  -ForegroundColor green
+    write-host "  Or More : How often the sum equals the value or more."  -ForegroundColor green
+    write-host "  Or Less : How often the sum equals the value or less."  -ForegroundColor green
+    write-host "  C       : Values are calculated with math."  -ForegroundColor green
+    write-host "  BF      : Values are counted using brute force methods."  -ForegroundColor green
     write-host "------------------------------------------------------------------------------" -ForegroundColor green
-    write-host ("{0,-1} {1,-10} {2,20} {3,38} {4,38}" -f "", "", "--Equal To--", "--Or More--", "--Or Less--") 
-    write-host ($outFormat -f "", "Sum", "Brute Force", "Caclulated", "Brute Force", "Caclulated", "Brute Force", "Caclulated" ) 
+    write-host ($outFormat -f "", "Sum", "Equal To (BF)", "Equal To (C)", "Or More (BF)", "Or More (C)", "Or Less (BF)", "Or Less (C)" ) 
     
     #the number of rows in the array. .count gives rows * colums so won't work here
     $aryRowCount = $($script:arySumsTable).count / $script:sumsWidth
