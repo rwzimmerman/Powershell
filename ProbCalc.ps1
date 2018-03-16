@@ -6,7 +6,7 @@
         Calculates the percentage chance of outcomes for die rolls, card draws, etc.
 
     .DESCRIPTION
-        Scenario - The parameters of the random event being measured.
+        Scenario - The parameters to be tested.  This include all 
         Result - One of many possible outcomes in a scenario.  
         Node - A single randomizaion element (e.g. one die, one card, onc coin, etc.)
         Face - A single value from a node.  (e.g three on a die, or a queen on a playing card)
@@ -62,8 +62,6 @@
         Add CSV Export
 
 
-        Array notes
-        https://powershell.org/2013/09/16/powershell-performance-the-operator-and-when-to-avoid-it/
 
 
     .LINK
@@ -71,34 +69,31 @@
 #> 
 
 
-#https://weblogs.asp.net/soever/powershell-return-values-from-a-function-through-reference-parameters
-
-
 
 
 param(
     [int]$NodeCount=2,              #the number of elements in the randomization (e.g. 3 cards, 2 dice, etc.)
     #Systems
-    [switch]$XWingAtt,              #True if XWing attack dice are being used 
-    [switch]$XWingDef,              #True if XWing defence dice are being used 
-    [switch]$MalifauxSuited,        #
-    [switch]$MalifauxUnsuited,      #
-    [switch]$d4,                    #
-    [switch]$d6,                    #
-    [switch]$d8,                    #
-    [switch]$d10,                   #
-    [switch]$d12,                   #
-    [switch]$d20,                   #
-    [switch]$dx,                   #
-    [switch]$Coin,                  #
+    [switch]$XWingAtt,              #Use XWing attack dice are being used 
+    [switch]$XWingDef,              #Use XWing defence dice are being used 
+    [switch]$MalifauxSuited,        #Use an exhausting deck of cards and malifaux joker logic
+    [switch]$MalifauxUnsuited,      #Use an exhausting deck of cards, where the suits do not matter and malifaux joker logic
+    [switch]$d4,                    #Use a d4 (1,2,3,4)
+    [switch]$d6,                    #Use a d4 (1,2,3,4,5,6)
+    [switch]$d8,                    #Use a d4 (1,2,3,4,5,6,7,8)
+    [switch]$d10,                   #Use a d4 (1,2,3,4,5,6,7,8,9,10)
+    [switch]$d12,                   #Use a d4 (1,2,3,4,5,6,7,8,9,10,11,12)
+    [switch]$d20,                   #Use a d4 (1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20)
+    [switch]$dx,                    #Use a test die
+    [switch]$Coin,                  #Use a coin (Heads,Tails)
     #Options
-    [string[]]$Faces,               #    
-    [switch]$ExhaustFaces,          #
+    [string[]]$Faces,               #The faces present on a node (e.g. 1,2,3,4,5,6 for a d6)    
+    [switch]$ExhaustFaces,          #True if faces are unique and cannot restult twice (e.g. removing the 3 of hearts from a deck after it is drawn)
     [switch]$MalifauxJokers,        #True if Malfiaux joker logic should be applied
-    [switch]$ShowSums,              #
-    [switch]$ShowExacts,            #
-    [switch]$ShowOrBetter,          #
-    [switch]$ShowHighLow,           #
+    [switch]$ShowSums,              #Show the probability of sums occuring for numeric nodes (e.g. rolling 9 an 2d6)
+    [switch]$ShowExacts,            #Show the probability of an exact value occuring (e.g. getting one 5 on 2d6)
+    [switch]$ShowOrBetter,          #Show the probability of a value or better occuring (e.g. getting one 5+ on 2d6)
+    [switch]$ShowHighLow,           #Show the probability of a value being the highest or lowest value (e.g. a 5 being the lowst value 2d6)
     [switch]$ShowAllTables,         #Shows all tables
     #Debug
     [switch]$Test,                  #Test Data
@@ -110,20 +105,36 @@ param(
 $aryFaces = @()               #This array holds the value on each face of each node
 $aryUniqueFaces = @()         #This array is a list of the unique faces on each node
 $aryResult = @()              #This array is the current result
-#The arrays below are created in functions with the 'script' scope.  They are listed here for reference
-#$aryBFExactlyXTable = @()          #
-#$aryBFExactXOrMoreTable = @()      #
-#$aryBFOrBetterTable = @()          #
 
-#$aryCalcExactlyXTable = @()        #
-#$aryCalcExactXOrMoreTable = @()      #
+#These are the summary arrays.  
+#They keep track of how many times a give result occures in the scenario.  The script 
+#calulates the highest possible result (r) and greatest #number of times that result 
+#can occur (o). It will then create a static array with o columns and r rows. 
+#I used static arrays because powershell handles dynamic arrays poorly. When adding
+#a row or column to an array, powershell copies the existing array to a new array and
+#adds the new row or column. For performance reasons I create a static array large
+#enough for all possible results.  
+#This means there may be extra rows.  E.g. when rolling a die with 2,4,6 as the faces
+#it is impossible to roll an odd number.  The arrays will have space for the impossible
+#results. It is faster to create a wasteful array than to calculate all possible results
+#and dynamically create the array.
+#Rows with 0 results will not be displayed.
+
+#This is a list of the summary tables that will be created.  BF stands for Brute Force
+#Calc stands for calculated.
+
+#$aryBFExactlyXTable = @()          #Probability of a result occurning exactly X times (e.g. rolling exaclty two 5's)
+#$aryBFExactXOrMoreTable = @()      #Probablyily of a result occurning exactly X or more times (e.g. rolling two or more 5's)
+#$aryBFOrBetterTable = @()          #Probability of a result or a better result occurning (e.g. rolling two or more 5+'s) 
+
+#$aryCalcExactlyXTable = @()        #These tables are exaclty the same as those above except they are calculated rather than brute force
+#$aryCalcExactXOrMoreTable = @()    #
 #$aryCalcOrBetterTable = @()        #
 
-#$aryHighFaceTable = @()            #
-#$aryLowFaceTable = @()             #
+#$aryHighFaceTable = @()            #The chance that the result is the highest result
+#$aryLowFaceTable = @()             #The chance that the result is the lowest result
 
-#$arySumsTable = @()
-
+#$arySumsTable = @()                #Proability of various results for numeric results like (rolling 5, 5 or more, 5 or less on 3d6)
 
 #Variables
 $resultID = -1                  #The current result
@@ -323,7 +334,7 @@ function Create-OccuranceSummaryTables {
 
 
 ##################################################################################################
-#xxx
+#
 function Create-MathSummaryTable {
     
     
@@ -372,18 +383,10 @@ function Create-MathSummaryTable {
 # Calcuations functions
 ##################################################################################################
 
+#Calculate the chances of each possible result using math
 function Calculate-TheoreticalResults {
 
-
-
-
     Calculate-ExactlyX
-
-
-
-
-
-
 
 }
 
@@ -391,9 +394,9 @@ function Calculate-TheoreticalResults {
 
 
 ##################################################################################################
-# 
+# Calculate exaclty the probablity that each possible result will occur exactly x times, where
+# x is 0 to the maximum number of times it can occur.
 function Calculate-ExactlyX {
-
 
     foreach($face in $script:aryUniqueFaces) {
 
@@ -401,7 +404,6 @@ function Calculate-ExactlyX {
         $matchingFaceCount =  Get-FaceCount -FaceName $face          #How many faces Match the current face
         $orBetterFaceCount = Get-OrBetterFaceCount -FaceName $face   #How many faces Match or are better than the current face
         $totalFaceCount =  $script:aryFaces.Count                    #How many faces the node has
-        
 
         #Step through the node count, calculating the probabilty that the node will occure n times
         #where n is 0 to the number of possible nodes.
@@ -418,9 +420,6 @@ function Calculate-ExactlyX {
             $col = $occCount +1
             #$script:aryCalcExactlyXTable[$row,$col] = [string]$($ExacltyXChanceString)
             $script:aryCalcExactlyXTable[$row,$col] = $ExacltyXChance
-            
-
-
         }
     }
 }
@@ -428,20 +427,9 @@ function Calculate-ExactlyX {
 
 
 
-
-
-
-
-
-
-
-
-
-
 ##################################################################################################
 # Brute Force Processing functions
 ##################################################################################################
-
 
 ##################################################################################################
 #Steps through each face of a node
@@ -496,9 +484,7 @@ function Create-DrawPool {
         }
     }
 
-
     return $aryPoolOut
-
 }
 
 ##################################################################################################
@@ -524,7 +510,10 @@ function Tally-SummaryTables{
     if($ShowAllTables -or $ShowExacts)    {Tally-ExactXOrMoreTable}
     if($ShowAllTables -or $ShowOrBetter)  {Tally-OrBetterTable}
     if($ShowAllTables -or $ShowHighLow)   {}
-    if($ShowSums)      {Tally-SumOrMoreColumn}
+    if($ShowSums) {
+        Tally-SumOrMoreColumn
+        Tally-SumOrLessColumn
+    }
 }
 
 
@@ -533,7 +522,6 @@ function Tally-SummaryTables{
 
 ##################################################################################################
 function Analyze-ResultForMathValues {
-
 
     if($showProcessing) {write-host "  Analyze-ResultForMathValues" -ForegroundColor green }
 
@@ -595,7 +583,6 @@ function Analyze-ResultForHighAndLowFace {
     #the number of columns in the result
     $colCount = $aryResultAsRowsSorted.count
 
-
     #If Malifaux Jokers are in effect then proccess
     if($MalifauxJokers) {
         #check to see if there are any black jokers
@@ -623,20 +610,15 @@ function Analyze-ResultForHighAndLowFace {
         }
     }
 
-
     #write the lowest faces to the lowface table
     #$lowFace = $aryResultAsRowsSorted[0] 
     $faceName = Convert-RowToFace -RowNumber $aryResultAsRowsSorted[0]
     Incriment-SummaryArray -FaceName $faceName -LowFace -BruteForce
 
-
     #write the highest faces to the hightface table
     #$highFace = $aryResultAsRowsSorted[$colCount -1] 
     $faceName = Convert-RowToFace -RowNumber $aryResultAsRowsSorted[$colCount -1]
     Incriment-SummaryArray -FaceName $faceName -HighFace -BruteForce
-
-
-
 }
 
 
@@ -692,37 +674,64 @@ function Tally-OrBetterTable {
 
 
 ##################################################################################################
-#xxx
+#
 function Tally-SumOrMoreColumn {
-
-
-    if($showProcessing) {write-host "  Tally-SumOrMoreColumn" -ForegroundColor green }
-
-    $CountColumn = $script:sumsColOrMoreBF        #The column holding the number of matching occurances
-
-    #get the number of rows to process
-    $rowCount = $($script:arySumsTable).count / $script:sumsWidth
     
-    #Step through each row
-    for($row = 0; $row -le $rowCount; $row++) {
-        #Step through each row after the current row
-        for($shortRow = $row +1; $shortRow -le $rowCount; $shortRow++) {
-            #If the current row's total is more than 0 then all higher results to this occurance total since they are "more"
-            #IF the current row's total is 0 then is is not a possible result and should stay at 0 occurances
-            if ($script:arySumsTable[$Row,$CountColumn] -gt 0) {
-               $script:arySumsTable[$Row,$CountColumn] = $script:arySumsTable[$Row,$CountColumn] + $($script:arySumsTable[$shortRow,$CountColumn])
+        if($showProcessing) {write-host "  Tally-SumOrMoreColumn" -ForegroundColor green }
+    
+        $CountColumn = $script:sumsColOrMoreBF        #The column holding the number of matching occurances
+    
+        #get the number of rows to process
+        $rowCount = $($script:arySumsTable).count / $script:sumsWidth
+        
+        #Step through each row
+        for($row = 0; $row -le $rowCount; $row++) {
+            #Step through each row after the current row
+            for($shortRow = $row +1; $shortRow -le $rowCount; $shortRow++) {
+                #If the current row's total is more than 0 then all higher results to this occurance total since they are "more"
+                #IF the current row's total is 0 then is is not a possible result and should stay at 0 occurances
+                if ($script:arySumsTable[$Row,$CountColumn] -gt 0) {
+                   $script:arySumsTable[$Row,$CountColumn] = $script:arySumsTable[$Row,$CountColumn] + $($script:arySumsTable[$shortRow,$CountColumn])
+                }
             }
         }
     }
-}
-
-
-
+    
+    
+##################################################################################################
+#Count up the number of times an outcome or any value less than that outcome occurs in the
+#math summary table.
+function Tally-SumOrLessColumn {
+    
+        if($showProcessing) {write-host "  Tally-SumOrLessColumn" -ForegroundColor green }
+    
+        $CountColumn = $script:sumsColOrLessBF          #The column holding the number of matching occurances
+    
+        #get the number of rows to process
+        $rowCount = $($script:arySumsTable).count / $script:sumsWidth
+        
+        #Step through each row
+        #for($row = 0; $row -le $rowCount; $row++) {
+        for($row = $rowCount; $row -ge 0; $row--) {
+                #Step through each row after the current row
+            for($shortRow = $row -1; $shortRow -ge 0; $shortRow--) {
+                #If the current row's total is more than 0 then all lower results to this occurance total since they are "more"
+                #IF the current row's total is 0 then is is not a possible result and should stay at 0 occurances
+                if ($script:arySumsTable[$Row,$CountColumn] -gt 0) {
+                   $script:arySumsTable[$Row,$CountColumn] = $script:arySumsTable[$Row,$CountColumn] + $($script:arySumsTable[$shortRow,$CountColumn])
+                }
+            }
+        }
+    }
+    
+    
+        
 
 
 
 ##################################################################################################
-#
+#Count up the number of times an outcome or any value greater than that outcome occurs in the
+#math summary table.
 function Tally-ExactXOrMoreTable{
 
     if($showProcessing) {write-host "  Tally-ExactXOrMoreTable" -ForegroundColor green }
@@ -748,7 +757,8 @@ function Tally-ExactXOrMoreTable{
 
 
 ##################################################################################################
-# 
+#Summary arrays keep track of how many times an outcome occurs.  This functions adds the proper
+#value to the proper summary array.
 function Incriment-SummaryArray {
     param(
         [string]$FaceName,            #the name of the face to incriment
@@ -796,10 +806,6 @@ function Incriment-SummaryArray {
             $script:aryLowFaceTable[$row,2] = $script:aryLowFaceTable[$row,2] + $OccCount
         }
     } 
-
-
-
-
 }
 
 
@@ -816,7 +822,7 @@ function Incriment-SummaryArray {
 
 
 ##################################################################################################
-#Displays the value of each node in the current event
+#Displays the value of each node in the current scenario
 function Display-CurrentRestult {
     
         [string]$output = "  ID: $script:resultID"
@@ -831,44 +837,52 @@ function Display-CurrentRestult {
 
 
 ##################################################################################################
-#Displays summary table for Math type tables
-#xxx
+#Displays summary table for Math values
+#
 function Display-MathSummaryTable {
 
+    #the total number of possible outcomes a given scenario can produce
+    $possibleOutcomes = $script:resultID +1
 
-    $outFormat = "{0,-1} {1,-8} {2,-10} {3,-8} {4,-10} {5,-8} {6,-10} {7,-8}"
-    $outFormat = "{0,-1} {1,-10} {2,-10} {3,-10} {4,-10} {5,-10} {6,-10} {7,-10}"
-    $outFormat = "{0,-1} {1,-10} {2,-6} {3,-10} {4,-6} {5,-10} {6,-6} {7,-10}"
+    #the spacing for the rows to output
+    $outFormat = "{0,-1} {1,-6} {2,17} / {3,-17} {4,17} / {5,-17} {6,17} / {7,-17}"
     
-
-    
-
-
+    #Header info
     write-host
     write-host "------------------------------------------------------------------------------" -ForegroundColor green
-    write-host "Sums Table ($($script:resultID +1) Possible Outcomes)" -ForegroundColor green
+    write-host "Sums Table ($possibleOutcomes) Possible Outcomes)" -ForegroundColor green
     write-host "Diplays information on the sum of all dice in the pool"   -ForegroundColor green
-    write-host "  Equal:   How often the sum exactly equals the value."  -ForegroundColor green
-    write-host "  Or Mor:  How often the sum equals the value or more."  -ForegroundColor green
+    write-host "  Equal To:   How often the sum exactly equals the value."  -ForegroundColor green
+    write-host "  Or More:  How often the sum equals the value or more."  -ForegroundColor green
     write-host "  Or Less: How often the sum equals the value or less."  -ForegroundColor green
     write-host "------------------------------------------------------------------------------" -ForegroundColor green
-    write-host ("{0,-1} {1,-10} {2,-17} {3,-17} {4,-17}" -f "", "", "--Exact--", "--Or More--", "--Or Less--") 
-    write-host ($outFormat -f "", "Sum", "BF", "Cacl", "BF", "Cacl", "BF", "Cacl" ) 
+    write-host ("{0,-1} {1,-10} {2,20} {3,38} {4,38}" -f "", "", "--Equal To--", "--Or More--", "--Or Less--") 
+    write-host ($outFormat -f "", "Sum", "Brute Force", "Caclulated", "Brute Force", "Caclulated", "Brute Force", "Caclulated" ) 
     
+    #the number of rows in the array. .count gives rows * colums so won't work here
+    $aryRowCount = $($script:arySumsTable).count / $script:sumsWidth
+    
+    #step through each row
+    for($row = 0; $row -lt $aryRowCount; $row++ ) {
 
-    $aryCount = $($script:arySumsTable).count / $script:sumsWidth
-    
-    for($row = 0; $row -lt $aryCount; $row++ ) {
+        #get the data fromthe row and format it for output
         $name = $script:arySumsTable[$row,$script:sumsColName]
-        $exactBF = $script:arySumsTable[$row,$script:sumsColExactBF]
-        $exactCalc = $script:arySumsTable[$row,$script:sumsColExactCalc]
-        $orMoreBF = $script:arySumsTable[$row,$script:sumsColOrMoreBF]
-        $orMoreCalc = $script:arySumsTable[$row,$script:sumsColOrMoreCalc]
-        $orLessBF = $script:arySumsTable[$row,$script:sumsColOrLessBF]
-        $orLessCalc = $script:arySumsTable[$row,$script:sumsColOrLessCalc]
+        $exactBF = Format-PercentageOutputFromCount -Numerator $script:arySumsTable[$row,$script:sumsColExactBF] -Denominator $possibleOutcomes
+        $exactCalc = Format-PercentageOutputFromCount -Numerator $script:arySumsTable[$row,$script:sumsColExactCalc] -Denominator $possibleOutcomes
+        $orMoreBF = Format-PercentageOutputFromCount -Numerator $script:arySumsTable[$row,$script:sumsColOrMoreBF] -Denominator $possibleOutcomes
+        $orMoreCalc = Format-PercentageOutputFromCount -Numerator $script:arySumsTable[$row,$script:sumsColOrMoreCalc] -Denominator $possibleOutcomes
+        $orLessBF = Format-PercentageOutputFromCount -Numerator $script:arySumsTable[$row,$script:sumsColOrLessBF] -Denominator $possibleOutcomes
+        $orLessCalc = Format-PercentageOutputFromCount -Numerator $script:arySumsTable[$row,$script:sumsColOrLessCalc] -Denominator $possibleOutcomes
+        
+        #tally all values in the row. If all are 0 then the row won't be displayed
+        #this is because the array may contain rows for impossisble results like 5 if rolling two dice with these faces 2,4,6,8
+        $colTally = 0
+        for($col = 1; $col -lt $script:sumsWidth; $col++) {
+            $colTally = $colTally + $script:arySumsTable[$row,$col]
+        }
 
-        #if any of the values are not 0 then display the result
-        if($($exactBF + $exactCalc + $orMoreBF + $orMoreCalc + $orLessBF + $orLessCalc) -gt 0){
+        #if the row has any non 0 values then display the row
+        if($colTally -gt 0){
             write-host ($outFormat -f "", $name, $exactBF, $exactCalc, $orMoreBF, $orMoreCalc, $orLessBF, $orLessCalc) 
         }
     }
@@ -947,17 +961,12 @@ function Display-OccurnaceSummaryTable {
     write-host "$outDescritption2"   -ForegroundColor green
     write-host "------------------------------------------------------------------------------" -ForegroundColor green
 
-
-
-
-
     #Brute Force
     if($ShowBF -or $ShowBoth) {
         Display-OccurnaceSummaryTableHeader -BruteForce
         Display-OccurnaceSummaryTableRows -BruteForce
 
     }
-
 
     #Calculated 
     if($ShowCalc -or $ShowBoth) {
@@ -967,6 +976,7 @@ function Display-OccurnaceSummaryTable {
 }
     
 
+##################################################################################################
 #displays the header row of an Occurance Summary Table
 function  Display-OccurnaceSummaryTableHeader {
     param(
@@ -997,6 +1007,7 @@ function  Display-OccurnaceSummaryTableHeader {
 
 
 
+##################################################################################################
 #Displays the rows of an Occurance Summary Table
 function Display-OccurnaceSummaryTableRows {
     param(
@@ -1106,7 +1117,7 @@ function Display-OccurnaceSummaryTableRows {
 
 
 ##################################################################################################
-#Displays a summary of the event
+#Displays a summary of the scenario
 function Display-ScenarioData {
 
 
@@ -1140,16 +1151,8 @@ function Display-ScenarioData {
 }
 #
 ##################################################################################################
-#Displays tables based on the scenario type
-#Scenarios:
-#  MalifauxJokers
-#  Coins
-#  XWing
-
-
-
+#Displays tables based on the type of data that is likely to be interesting.
 function Display-Tables {
-
 
     Display-ScenarioData
 
@@ -1170,11 +1173,6 @@ function Display-Tables {
     if($ShowAllTables -or $ShowSums) {
         Display-MathSummaryTable
     }
-
-
-
-
-
 }
 
 
@@ -1184,7 +1182,7 @@ function Display-Tables {
 ##################################################################################################
 
 ##################################################################################################
-#Formats decimals as percentages
+#Formats percentages from deicimal or fraction input
 function Format-AsPercentage {
 
     param (
@@ -1194,12 +1192,9 @@ function Format-AsPercentage {
         [int]$Digits=2          #How many digits to leave after the decimal place
         )
 
-        
-
     if($Denominator -gt 0) {
         $decimal = $Numerator / $Denominator
     }
-
     
     #string Formating
     $Decimal = $Decimal * 100
@@ -1232,6 +1227,24 @@ function Format-AsPercentage {
     return $percentString 
 }
 
+##################################################################################################
+#Formats a percentage value into a string with this format " xxx.xx% (y)" where xxx.xx is the
+#percent likelyhood of the result and y is the total number of occurances for the result
+function Format-PercentageOutputFromCount {
+    param (
+        [int]$Numerator,
+        [int]$Denominator
+    )
+
+    $asPercent = Format-AsPercentage -Numerator $Numerator -Denominator $Denominator
+    [string]$output = "$asPercent ($Numerator)"
+    return $output
+}
+
+
+
+
+
 
 
 ##################################################################################################
@@ -1253,8 +1266,6 @@ function Get-OrBetterFaceCount {
     }
 
     return $faceCount
-
-
 }
 
 
@@ -1280,7 +1291,6 @@ function Get-FaceCount {
 
 ##################################################################################################
 #Returns the lowest row number of a given face value in the Faces Table
-
 function Convert-FaceToLowestRow {
     param(
         $FaceName
@@ -1420,7 +1430,7 @@ function Get-Combination{
 # Binomial = (C(n,k)) * (p^k) * ((1-p)^(n-k))
 # C(n,k) = n!/k!(n-k)!
 # k = the numer of exact time an element will be present
-# n = the number of nodes in the event
+# n = the number of nodes in the scenario
 # p = the probability of success (in percent)
 
 function Get-Binomial {
