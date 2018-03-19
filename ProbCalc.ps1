@@ -56,10 +56,11 @@
         Updated: Feb 2018
 
         To Do:
-        Add "reroll logic" allow for rerolls and caclute percentages after a reroll
-        Add asymetrical dice support
-        Add percentages to displays
-        Add CSV Export
+            Add Calcualted restuls for Exhausing faces and "Or Better"
+            Add Rolling differing dice (e.g. Fallout colored dice)
+            Add Compound faces (e.g. dice with 1 hit and 2 hit faces)
+            Add Rerolls
+            Add CSV Export
 
 
 
@@ -131,9 +132,7 @@ $aryResult = @()              #This array is the current result
 #$aryCalcExactXOrMoreTable = @()    #
 #$aryCalcOrBetterTable = @()        #
 
-#$aryHighFaceTable = @()            #The chance that the result is the highest result
-#$aryLowFaceTable = @()             #The chance that the result is the lowest result
-
+#$aryHighLowTable = @()             #Proability of a face being the highest/lowest face in a result.
 #$arySumsTable = @()                #Proability of various results for numeric results like (rolling 5, 5 or more, 5 or less on 3d6)
 
 #Variables
@@ -224,7 +223,7 @@ if($XWingAtt) {
 
 $ShowExacts = $true
 
-#estimate the number of results for the statuse bar
+#estimate the number of results for the status bar
 $resultCount = 0
 $estResultCount = [math]::pow($aryFaces.count,$NodeCount)
 
@@ -292,10 +291,6 @@ function Create-OccuranceSummaryTables {
     $script:aryCalcExactXOrMoreTable = New-Object 'object[,]' $faceCount,$([int]$NodeCount+2)
     $script:aryCalcOrBetterTable = New-Object 'object[,]' $faceCount,$([int]$NodeCount+2)
 
-    $script:aryHighFaceTable = New-Object 'object[,]' $faceCount,$([int]$NodeCount+2)
-    $script:aryLowFaceTable = New-Object 'object[,]' $faceCount,$([int]$NodeCount+2)
-
-
     #get row and column sizes
     $rowCount = $($script:aryUniqueFaces).count
     $colCount = $NodeCount +1
@@ -309,8 +304,6 @@ function Create-OccuranceSummaryTables {
         $aryBFOrBetterTable[$row,0] = $script:aryUniqueFaces[$row]
         $aryCalcOrBetterTable[$row,0] = $script:aryUniqueFaces[$row]
         $aryBFExactXOrMoreTable[$row,0] = $script:aryUniqueFaces[$row]
-        $aryHighFaceTable[$row,0] = $script:aryUniqueFaces[$row]
-        $aryLowFaceTable[$row,0] = $script:aryUniqueFaces[$row]
         #zero the rest of the values in the arrays
         for($col = 1; $col -le $([int]$NodeCount)+1; $col++) {
             $aryBFExactlyXTable[$row,$col] = 0
@@ -319,11 +312,42 @@ function Create-OccuranceSummaryTables {
             $aryBFOrBetterTable[$row,$col] = 0
             $aryCalcOrBetterTable[$row,$col] = 0
             $aryBFExactXOrMoreTable[$row,$col] = 0
-            $aryHighFaceTable[$row,$col] = 0
-            $aryLowFaceTable[$row,$col] = 0
         }
     }
+}
 
+
+
+
+    
+##################################################################################################
+## Create summary tables for counting occurnaces.
+function Create-HighLowSummaryTable {
+
+    if($showProcessing) {write-host "  Create-HighLowSummaryTable" -ForegroundColor green }
+
+    #get row and column sizes
+    $rowCount = $($script:aryUniqueFaces).count
+
+    #the columns
+    $script:highLowColName = 0
+    $script:highLowColLowestBF = 1
+    $script:highLowColLowestCalc = 2
+    $script:highLowColHighestBF = 3
+    $script:highLowColHighestCalc = 4
+    $script:highLowWidth = 5
+    
+    #creat the Exact and OrBetter summary arrays
+    $script:aryHighLowTable = New-Object 'object[,]' $rowCount,$script:highLowWidth
+    
+    #put the face name in the 0 element in the array
+    for($row = 0; $row -lt ($script:aryUniqueFaces).count; $row++) {
+        $aryHighLowTable[$row,$script:highLowColName] = $script:aryUniqueFaces[$row]
+        $aryHighLowTable[$row,$script:highLowColLowestBF] = 0
+        $aryHighLowTable[$row,$script:highLowColLowestCalc] = 0
+        $aryHighLowTable[$row,$script:highLowColHighestBF] = 0
+        $aryHighLowTable[$row,$script:highLowColHighestCalc] = 0
+    }
 }
 
 
@@ -378,7 +402,7 @@ function Create-MathSummaryTable {
     }
 }
 
-        
+
 ##################################################################################################
 # Calcuations functions
 ##################################################################################################
@@ -791,20 +815,17 @@ function Incriment-SummaryArray {
         }
 
     #udpate High Face    
-    } elseif ($HighFace) {
-        if($BruteForce) {
-            $script:aryHighFaceTable[$row,1] = $script:aryHighFaceTable[$row,1] +1
-        } elseif ($Calculated) {
-            $script:aryHighFaceTable[$row,2] = $script:aryHighFaceTable[$row,2] + $OccCount
+    } elseif ($HighFace -or $LowFace) {
+        if       ($HighFace -and $BruteForce) {
+            $col = $script:highLowColHighestBF
+        } elseif ($HighFace -and $Calculated) {
+            $col = $script:highLowColHighestCalc
+        } elseif ($LowFace  -and $BruteForce) {
+            $col = $script:highLowColLowestBF
+        } elseif ($LowFace  -and $Calculated) {
+            $col = $script:highLowColLowestCalc
         }
-
-    #update Low Face
-    } elseif ($LowFace) {
-        if($BruteForce) {
-            $script:aryLowFaceTable[$row,1] = $script:aryLowFaceTable[$row,1] +1
-        } elseif ($Calculated) {
-            $script:aryLowFaceTable[$row,2] = $script:aryLowFaceTable[$row,2] + $OccCount
-        }
+        $script:aryHighLowTable[$row,$col] = $script:aryHighLowTable[$row,$col] + 1
     } 
 }
 
@@ -892,6 +913,49 @@ function Display-MathSummaryTable {
 
 
 
+##################################################################################################
+#Displays summary table for Highest and Lowest value probabilities
+function Display-HighLowTable {
+
+    #the total number of possible outcomes a given scenario can produce
+    $possibleOutcomes = $script:resultID +1
+
+    #the spacing for the rows to output
+    $outFormat = "{0,-1} {1,-6} {2,17} / {3,-17} {4,17} / {5,-17}"
+    
+    #Header info
+    write-host
+    write-host "------------------------------------------------------------------------------" -ForegroundColor green
+    write-host "Highest/Lowest Table ($possibleOutcomes) Possible Outcomes)" -ForegroundColor green
+    write-host "  Highest : How likely the face is to be the highest face in the result."  -ForegroundColor green
+    write-host "  Lowest  : How likely the face is to be the lowest face in the result."  -ForegroundColor green
+    write-host "  C       : Values are calculated with math."  -ForegroundColor green
+    write-host "  BF      : Values are counted using brute force methods."  -ForegroundColor green
+    write-host "------------------------------------------------------------------------------" -ForegroundColor green
+    write-host ($outFormat -f "", "Sum", "Lowest (BF)", "Lowest (C)", "Highest (BF)", "Highest (C)") 
+    
+    #the number of rows in the array. .count gives rows * colums so won't work here
+    $aryRowCount = $($script:aryHighLowTable).count / $script:highLowWidth
+    
+    #step through each row
+    for($row = 0; $row -lt $aryRowCount; $row++ ) {
+
+        #get the data fromthe row and format it for output
+        $name = $script:aryHighLowTable[$row,$script:sumsColName]
+        $exactBF = Format-PercentageOutputFromCount -Numerator $script:aryHighLowTable[$row,$script:highLowColLowestBF] -Denominator $possibleOutcomes
+        $exactCalc = Format-PercentageOutputFromCount -Numerator $script:aryHighLowTable[$row,$script:highLowColLowestCalc] -Denominator $possibleOutcomes
+        $orMoreBF = Format-PercentageOutputFromCount -Numerator $script:aryHighLowTable[$row,$script:highLowColHighestBF] -Denominator $possibleOutcomes
+        $orMoreCalc = Format-PercentageOutputFromCount -Numerator $script:aryHighLowTable[$row,$script:highLowColHighestCalc] -Denominator $possibleOutcomes
+        
+
+        write-host ($outFormat -f "", $name, $exactBF, $exactCalc, $orMoreBF, $orMoreCalc) 
+    }
+}
+
+
+
+
+
 
 
 
@@ -902,8 +966,6 @@ function Display-OccurnaceSummaryTable {
         [switch]$ExactlyX,              #True if the Exact Occurnaces table should be displayed
         [switch]$ExactXOrMore,               #True if the ExactXOrMore table should be displayed
         [switch]$XOrBetter,             #True if the OrBetter table should be displayed
-        [switch]$HighestFace,          #True if the OrBetter table should be displayed
-        [switch]$LowestFace,             #True if the OrBetter table should be displayed
         [switch]$ShowBF,
         [switch]$ShowCalc,
         [switch]$ShowBoth
@@ -911,7 +973,7 @@ function Display-OccurnaceSummaryTable {
 
 
     #if no switch is true display nothing
-    if(!$ExactlyX -and !$ExactXOrMore -and !$XOrBetter -and !$HighestFace -and !$LowestFace) {return}
+    if(!$ExactlyX -and !$ExactXOrMore -and !$XOrBetter) {return}
 
     #$rowCount = $($script:aryUniqueFaces).count
     $colCount = $NodeCount +2
@@ -941,14 +1003,6 @@ function Display-OccurnaceSummaryTable {
         $outTableTitle = "X Or Better"
         $outDescritption = "How many times a face or better occurs X times or more (e.g. 2 or more 3+'s )."
         $outDescritption2 = "Good for dice pools like X-Wing where Hits and Crits (and maybe Focuses) damage ships."
-    } elseif($HighestFace) {
-        $outTableTitle = "Highest Face"
-        $outDescritption = "The chances that the face is the highest face in the occurance"
-        $outDescritption2 = "HighestFace"
-    } elseif($LowestFace) {
-        $outTableTitle = "Lowest Face"
-        $outDescritption = "The chances that the face is the lowest face in the occurance"
-        $outDescritption2 = ""
     }
 
 
@@ -1056,30 +1110,6 @@ function Display-OccurnaceSummaryTableRows {
                     $value = "-"
                     $valueType = "string" 
                 }
-
-            } elseif($LowestFace) {
-                if($Calculated){
-                    #No Table Yet
-                    $value = "-"
-                    $valueType = "string" 
-                } elseif($BruteForce) {
-                    $value = $script:aryLowFaceTable[$row,$col]
-                } else {
-                    $value = "-"
-                    $valueType = "string" 
-                }
-
-            } elseif($HighestFace) {
-                if($Calculated){
-                    #No Table Yet
-                    $value = "-"
-                    $valueType = "string" 
-                } elseif($BruteForce) {
-                    $value = $script:aryHighFaceTable[$row,$col]
-                } else {
-                    $value = "-"
-                    $valueType = "string" 
-                }
             }
 
 
@@ -1166,8 +1196,7 @@ function Display-Tables {
     }
 
     if($ShowAllTables -or $ShowHighLow) {
-        Display-OccurnaceSummaryTable -LowestFace -ShowBoth
-        Display-OccurnaceSummaryTable -HighestFace  -ShowBoth
+        Display-HighLowTable
     }
 
     if($ShowAllTables -or $ShowSums) {
@@ -1521,6 +1550,7 @@ $startTime = Get-Date
 Create-RestultArray
 Create-UniqueFacessTable
 Create-OccuranceSummaryTables
+Create-HighLowSummaryTable
 
 if($ShowSums -or $ShowAllTables) {
     Confirm-FacesAreNumeric
