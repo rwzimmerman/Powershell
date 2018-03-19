@@ -56,7 +56,7 @@
         Updated: Feb 2018
 
         To Do:
-            Add Calcualted restuls for Exhausing faces and "Or Better"
+            Add Calcualted restuls for Exhausing faces, "Or Better", Sums, Highest/Lowest
             Add Rolling differing dice (e.g. Fallout colored dice)
             Add Compound faces (e.g. dice with 1 hit and 2 hit faces)
             Add Rerolls
@@ -138,7 +138,8 @@ $aryResult = @()              #This array is the current result
 #Variables
 $resultID = -1                  #The current result
 $showProcessing = $false        #True if processing info should be displayed to the screen
-$script:sumsWidth = 1           #default value will be reset if numeric dice are used
+$sumsWidth = 1                  #default value will be reset if numeric dice are used
+$systemNote = ""                #A note do display with secenario summary
 
 
 
@@ -170,11 +171,12 @@ if($XWingAtt) {
     $ShowHighLow = $true
 }elseif($MalifauxSuited) {
     $systemName = "Malifaux Sited Cards"
+    $systemNote = "WS (Wrong Suit) is any card that is not of the desired suit."
     $ExhaustFaces=$true
     $MalifauxJokers=$true
     $aryFaces = @()
     for($i = 1; $i -le 39; $i++) {
-        $aryFaces += "NA"
+        $aryFaces += "WS"
     }
     $aryFaces += @("BJ","1","2","3","4","5","6","7","8","9","10","11","12","13","RJ")
     $ShowHighLow = $true
@@ -1161,6 +1163,10 @@ function Display-ScenarioData {
 
     if($systemName -ne "") {
         Write-Host ($outFormat -f "","System:",$systemName)  
+    }
+
+    if($systemNote -ne "") {
+        Write-Host ($outFormat -f "","Note:",$systemNote)  
     }
 
     Write-Host ($outFormat -f "","Nodes:",$NodeCount)  
