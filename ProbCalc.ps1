@@ -437,9 +437,9 @@ function Calculate-ExactlyX {
         # zero 6's, one 6, two 6's, and three 6's.
         for($occCount = 0; $occCount -le $NodeCount; $occCount++) {
             #Do a combination calcuation for distribution of times the node occures exaclty k times
-            $comb = Get-Combination -n $NodeCount -k $occCount
+            $comb = Calculate-BinomialCoefficient -n $NodeCount -k $occCount
             $successChance = $matchingFaceCount / $totalFaceCount
-            $ExacltyXChance = Get-Binomial -n $NodeCount -k $occCount -p $successChance
+            $ExacltyXChance = Calculate-ProbabiliyMass -n $NodeCount -k $occCount -p $successChance
             $ExacltyXChanceString = Format-AsPercentage -Decimal $ExacltyXChance
             #write the chance to the summary table
             $row = Convert-FaceToRow -FaceName $face
@@ -880,7 +880,7 @@ function Display-MathSummaryTable {
     write-host "  C       : Values are calculated with math."  -ForegroundColor green
     write-host "  BF      : Values are counted using brute force methods."  -ForegroundColor green
     write-host "------------------------------------------------------------------------------" -ForegroundColor green
-    write-host ($outFormat -f "", "Sum", "Equal To (BF)", "Equal To (C)", "Or More (BF)", "Or More (C)", "Or Less (BF)", "Or Less (C)" ) 
+    write-host ($outFormat -f "", "Sum", "Equal To BF", "Equal To C", "Or More BF", "Or More C", "Or Less BF", "Or Less C" ) 
     
     #the number of rows in the array. .count gives rows * colums so won't work here
     $aryRowCount = $($script:arySumsTable).count / $script:sumsWidth
@@ -934,7 +934,7 @@ function Display-HighLowTable {
     write-host "  C       : Values are calculated with math."  -ForegroundColor green
     write-host "  BF      : Values are counted using brute force methods."  -ForegroundColor green
     write-host "------------------------------------------------------------------------------" -ForegroundColor green
-    write-host ($outFormat -f "", "Sum", "Lowest (BF)", "Lowest (C)", "Highest (BF)", "Highest (C)") 
+    write-host ($outFormat -f "", "Sum", "Lowest BF", "Lowest C", "Highest BF", "Highest C") 
     
     #the number of rows in the array. .count gives rows * colums so won't work here
     $aryRowCount = $($script:aryHighLowTable).count / $script:highLowWidth
@@ -1052,10 +1052,10 @@ function  Display-OccurnaceSummaryTableHeader {
     }
     write-host 
     if($Calculated) {
-        write-host ("               Occurnaces (Calculated)") -ForegroundColor green
+        write-host ("               Occurnaces Calculated") -ForegroundColor green
         write-host ($outFormat -f $outData) -ForegroundColor green
     }elseif($BruteForce){
-        write-host ("               Occurnaces (Brute Force)") -ForegroundColor yellow
+        write-host ("               Occurnaces Brute Force") -ForegroundColor yellow
         write-host ($outFormat -f $outData) -ForegroundColor Yellow
     }
 }
@@ -1436,20 +1436,21 @@ function isNumeric ($x) {
 
 
 ######################################
-# Perform Combintaion
+# Calculates a Binomial Coeffieient
 # C(n,k) = n!/k!(n-k)!
-# C = the number of times a given face will be present exaclty k times in all possible outcomes in a set of n nodes.
+#
+# https://en.wikipedia.org/wiki/Binomial_coefficient
 
-function Get-Combination{
+function Calculate-BinomialCoefficient{
     param(
         [int]$n,
         [int]$k
     )
 
     #get factorials
-    $nfac = Get-Factorial $n
-    $kfac = Get-Factorial $k
-    $nMinusKfac = Get-Factorial $($n-$k)
+    $nfac = Calculate-Factorial $n
+    $kfac = Calculate-Factorial $k
+    $nMinusKfac = Calculate-Factorial $($n-$k)
 
     #get combination
     $c = $nfac / ($kfac * $nMinusKfac)
@@ -1459,16 +1460,19 @@ function Get-Combination{
 
 
 ######################################
-# Perform a Binomial calculation that will return the precentage chance that a face
-# will appear exaclty k times in n nodes when the probability of the face appearing
-# on a given node is p.
-# Binomial = (C(n,k)) * (p^k) * ((1-p)^(n-k))
+#Performs the Probabilty Mass Function and returns the result
+#The PMF calculates the percentage chance that a given result
+#will occure exaclty k times in a give scenario.
+#
+# PMF = (C(n,k)) * (p^k) * ((1-p)^(n-k))
 # C(n,k) = n!/k!(n-k)!
 # k = the numer of exact time an element will be present
 # n = the number of nodes in the scenario
 # p = the probability of success (in percent)
+#
+#https://en.wikipedia.org/wiki/Binomial_distribution
 
-function Get-Binomial {
+function Calculate-ProbabiliyMass {
     param(
         [int]$n,
         [int]$k,
@@ -1481,7 +1485,7 @@ function Get-Binomial {
     #write-host "p (success):     $p"
     
     #use a combination calculation to get the distribution of k appearing in n
-    [single]$c = Get-Combination -n $n -k $k
+    [single]$c = Calculate-BinomialCoefficient -n $n -k $k
     #the percentage chance of k nodes appearing based on a success rate of p
     $successes = [math]::pow($p,$k)
     #the percentage chance of n-k nodes NOT appearing based on a success rate of p
@@ -1498,7 +1502,7 @@ function Get-Binomial {
 
 ######################################
 # Get factorial of a number n
-function Get-Factorial {
+function Calculate-Factorial {
     param(
         [int]$n
     )
