@@ -1435,6 +1435,46 @@ function isNumeric ($x) {
 }
 
 
+
+
+
+######################################
+# Calculates a Hypergeometric Distribution
+# P(X=s) = C(k s) * C(n-k d-s) / C(n d)
+# where
+# n is the population size,
+# k is the number of success states in the population,
+# d is the number of draws,
+# s is the number of observed successes,
+# C(a b) is a binomial coefficient.
+#
+# https://en.wikipedia.org/wiki/Binomial_coefficient
+
+function Calculate-HypergeometricDistribution{
+    param(
+        [int]$PopulationSize,
+        [int]$SuccessStates,
+        [int]$Draws,
+        [int]$ObservedSuccesses
+    )
+
+    $a = Calculate-BinomialCoefficient -n $SuccessStates -k $ObservedSuccesses
+    $b = Calculate-BinomialCoefficient -n $($PopulationSize - $SuccessStates) -k $($Draws - $ObservedSuccesses)
+    $c = Calculate-BinomialCoefficient -n $PopulationSize -k $Draws
+
+
+    $answer = $a * $b / $c
+
+    return $answer
+    
+
+
+
+}
+
+
+
+
 ######################################
 # Calculates a Binomial Coeffieient
 # C(n,k) = n!/k!(n-k)!
