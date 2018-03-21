@@ -89,7 +89,8 @@ param(
     [switch]$Coin,                  #Use a coin (Heads,Tails)
     #Options
     [string[]]$Faces,               #The faces present on a node (e.g. 1,2,3,4,5,6 for a d6)    
-    [switch]$ExhaustFaces,          #True if faces are unique and cannot restult twice (e.g. removing the 3 of hearts from a deck after it is drawn)
+    [switch]$NoReplacement,         #True if faces are unique and cannot restult twice (e.g. removing the 3 of hearts from a deck after it is drawn)
+    
     [switch]$MalifauxJokers,        #True if Malfiaux joker logic should be applied
     [switch]$ShowSums,              #Show the probability of sums occuring for numeric nodes (e.g. rolling 9 an 2d6)
     [switch]$ShowExacts,            #Show the probability of an exact value occuring (e.g. getting one 5 on 2d6)
@@ -163,7 +164,7 @@ if($XWingAtt) {
     $ShowOrBetter = $true
 }elseif($MalifauxUnsuited) {
     $systemName = "Malifaux Unsuited Cards"
-    $ExhaustFaces=$true
+    $NoReplacement=$true
     $MalifauxJokers=$true
     $aryFaces = @("BJ","1","1","1","1","2","2","2","2","3","3","3","3","4","4","4","4",`
                   "5","5","5","5","6","6","6","6","7","7","7","7","8","8","8","8","9","9","9","9", `
@@ -172,7 +173,7 @@ if($XWingAtt) {
 }elseif($MalifauxSuited) {
     $systemName = "Malifaux Sited Cards"
     $systemNote = "WS (Wrong Suit) is any card that is not of the desired suit."
-    $ExhaustFaces=$true
+    $NoReplacement=$true
     $MalifauxJokers=$true
     $aryFaces = @()
     for($i = 1; $i -le 39; $i++) {
@@ -211,7 +212,7 @@ if($XWingAtt) {
     $ShowSums=$true
 }elseif($Test) {
     $systemName = "Test Data"
-    $ExhaustFaces=$true
+    $NoReplacement=$true
     $MalifauxJokers=$true
     $aryFaces += @("BJ","1","1","1","1","2","2","2","2","RJ")
     $ShowHighLow = $true
@@ -413,9 +414,7 @@ function Create-MathSummaryTable {
 function Calculate-TheoreticalResults {
 
     Calculate-ExactlyX
-
 }
-
 
 
 
@@ -437,14 +436,28 @@ function Calculate-ExactlyX {
         # zero 6's, one 6, two 6's, and three 6's.
         for($occCount = 0; $occCount -le $NodeCount; $occCount++) {
             #Do a combination calcuation for distribution of times the node occures exaclty k times
-            $comb = Calculate-BinomialCoefficient -n $NodeCount -k $occCount
             $successChance = $matchingFaceCount / $totalFaceCount
-            $ExacltyXChance = Calculate-ProbabiliyMass -n $NodeCount -k $occCount -p $successChance
-            $ExacltyXChanceString = Format-AsPercentage -Decimal $ExacltyXChance
+
+
+            if ($NoReplacement) {
+                #if there IS NO replacment (e.g. a deck of cards use Hypergeometric Distribution to calculate chance)
+                if($occCount -gt $matchingFaceCount ) {
+                    #if  we are looking for more occurance than there are instances (e.g. drawing 5 aces from standard deck) than there is 0% chance of that occuring
+                    $ExacltyXChance = 0
+                } else {
+                    #use Hypergeometric Distribution
+                    $ExacltyXChance = Calculate-HypergeometricDistribution -PopulationSize $totalFaceCount -SuccessStates $matchingFaceCount -Draws $NodeCount -ObservedSuccesses $occCount
+                }
+            } else {
+                #if there IS replacment (e.g. dice  use Binomial Probabiliy Mass to calculate chance)
+                $ExacltyXChance = Calculate-ProbabiliyMass -n $NodeCount -k $occCount -p $successChance
+            }
+
+            #write-host "$face - PopSize: $totalFaceCount / SucStates: $matchingFaceCount / Draws: $nodecount / ObsSuc: $occCount / Chance: $ExacltyXChance" -ForegroundColor Yellow
+
             #write the chance to the summary table
             $row = Convert-FaceToRow -FaceName $face
             $col = $occCount +1
-            #$script:aryCalcExactlyXTable[$row,$col] = [string]$($ExacltyXChanceString)
             $script:aryCalcExactlyXTable[$row,$col] = $ExacltyXChance
         }
     }
@@ -472,7 +485,7 @@ function Generate-BruteForceResult {
             $nextNode = $nodeNum +1
 
             #if exhaust faces is set then remove the current face from the pool for later draws
-            if($ExhaustFaces) {
+            if($NoReplacement) {
                 $nextDrawPool = Create-DrawPool -PoolIn $DrawPool -RemoveFace  $face
             } else {
                 $nextDrawPool = Create-DrawPool -PoolIn $DrawPool
@@ -1440,6 +1453,8 @@ function isNumeric ($x) {
 
 ######################################
 # Calculates a Hypergeometric Distribution
+# The probability of getting exaclty X instances of a value from a pool without replacement
+# For example the proability of drawing 4 cards and having exaclty 2 Kings from a deck of cards.
 # P(X=s) = C(k s) * C(n-k d-s) / C(n d)
 # where
 # n is the population size,
