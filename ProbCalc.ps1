@@ -414,7 +414,62 @@ function Create-MathSummaryTable {
 function Calculate-TheoreticalResults {
 
     Calculate-ExactlyX
+    Calculate-Lowest
 }
+
+
+
+
+#Calculates the chances that a face is the lowest face in the scenario
+#xxx
+function Calculate-Lowest{
+
+    foreach($face in $script:aryUniqueFaces) {
+        write-host "`n$face" -ForegroundColor Yellow
+        $row = Convert-FaceToRow -FaceName $face
+
+            $col  = $script:highLowColLowestCalc
+
+        
+            $script:aryHighLowTable[$row,$col] = .15
+
+            $percentLowest = 1
+
+            for($i = 1; $i -le $script:NodeCount; $i++) {
+
+                $orLowerFaceCount = Get-OrLesserFaceCount $face $script:aryFaces
+                $faceCount = $script:aryFaces.Count
+
+                $percentLowest = $percentLowest * ($orLowerFaceCount / $faceCount)
+
+                write-host "Node: $i - $face (count: $orLowerFaceCount / $faceCount = $percentLowest)  r/c $row / $col" -ForegroundColor Yellow
+
+
+
+            }
+
+            $script:aryHighLowTable[$row,$col] = $percentLowest
+
+
+        
+    }
+
+
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -427,7 +482,7 @@ function Calculate-ExactlyX {
 
         #Get node and face counts
         $matchingFaceCount =  Get-FaceCount -FaceName $face          #How many faces Match the current face
-        $orBetterFaceCount = Get-OrBetterFaceCount -FaceName $face   #How many faces Match or are better than the current face
+        $orBetterFaceCount = Get-OrBetterFaceCount -FaceName $face -aryNode $script:aryFaces   #How many faces Match or are better than the current face
         $totalFaceCount =  $script:aryFaces.Count                    #How many faces the node has
 
         #Step through the node count, calculating the probabilty that the node will occure n times
@@ -958,9 +1013,9 @@ function Display-HighLowTable {
         #get the data fromthe row and format it for output
         $name = $script:aryHighLowTable[$row,$script:sumsColName]
         $exactBF = Format-PercentageOutputFromCount -Numerator $script:aryHighLowTable[$row,$script:highLowColLowestBF] -Denominator $possibleOutcomes
-        $exactCalc = Format-PercentageOutputFromCount -Numerator $script:aryHighLowTable[$row,$script:highLowColLowestCalc] -Denominator $possibleOutcomes
+        $exactCalc = Format-AsPercentage $script:aryHighLowTable[$row,$script:highLowColLowestCalc] 
         $orMoreBF = Format-PercentageOutputFromCount -Numerator $script:aryHighLowTable[$row,$script:highLowColHighestBF] -Denominator $possibleOutcomes
-        $orMoreCalc = Format-PercentageOutputFromCount -Numerator $script:aryHighLowTable[$row,$script:highLowColHighestCalc] -Denominator $possibleOutcomes
+        $orMoreCalc = Format-AsPercentage $script:aryHighLowTable[$row,$script:highLowColHighestCalc] 
         
 
         write-host ($outFormat -f "", $name, $exactBF, $exactCalc, $orMoreBF, $orMoreCalc) 
@@ -1295,9 +1350,69 @@ function Format-PercentageOutputFromCount {
 
 
 
+
 ##################################################################################################
-#Returns the number of times a face, an equivalent or better occurs in the face array.
+#Returns the number of times a face, an equivalent, or LOWER occurs on a node.
+#xxx
+function Get-OrLesserFaceCount {
+        param(
+            [string]$FaceName,          #The name of the face to count
+            $aryNode                    #An array of all the faces on the node to examine
+        )
+    
+        $faceCount = 0
+        $faceMatch = $false
+    
+        #incriment the OrLesserFaceCount if the face matches or this face is prior to a match.
+        #step through each face in the array.  I'm using a for loop instead of a foreach because
+        #I want to ensure the array is processed from the lowest value to the highest.
+        for($i = 0;$i -lt $aryNode.Count;$i++){
+            if($($aryNode[$i] -eq $FaceName)) {
+                #If there is a match then incriment the counter and set the match flag to true
+                $faceMatch = $true
+                $faceCount = $faceCount +1
+            }elseif(!$faceMatch){
+                $faceCount = $faceCount +1
+            }elseif($faceMatch){
+                break
+            }
+        }
+
+        #return the count
+        return $faceCount
+    }
+    
+
+
+
+##################################################################################################
+#Returns the number of times a face, an equivalent, or BETTER occurs on a node.
 function Get-OrBetterFaceCount {
+    param(
+        [string]$FaceName,          #The name of the face to count
+        $aryNode                    #An array of all the faces on the node to examine
+    )
+
+    $faceCount = 0
+    $faceMatch = $false
+
+    #incriment the OrBetterFaceCount if the current or a previous face matched
+    for($i = 0;$i -lt $aryNode.Count;$i++){
+        if($($aryNode[$i] -eq $FaceName) -or $faceMatch) {
+            $faceMatch = $true
+            $faceCount = $faceCount +1
+        }
+    }
+    
+    return $faceCount
+}
+
+
+
+
+##################################################################################################
+#Returns the number of times a face, an equivalent, or BETTER occurs on a node.
+function DELETE_Get-OrBetterFaceCount {
     param(
         [string]$FaceName          #The name of the face to count
     )
@@ -1315,7 +1430,6 @@ function Get-OrBetterFaceCount {
 
     return $faceCount
 }
-
 
 
 ##################################################################################################
@@ -1339,7 +1453,7 @@ function Get-FaceCount {
 
 ##################################################################################################
 #Returns the lowest row number of a given face value in the Faces Table
-function Convert-FaceToLowestRow {
+function DELETE_Convert-FaceToLowestRow {
     param(
         $FaceName
     )
