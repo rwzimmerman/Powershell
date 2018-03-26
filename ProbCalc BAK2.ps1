@@ -105,7 +105,7 @@ param(
 
 #Arrays
 $aryFaces = @()               #This array holds the value on each face of each node
-###$aryUniqueFaces = @()         #This array is a list of the unique faces on each node
+$aryUniqueFaces = @()         #This array is a list of the unique faces on each node
 $aryUniqueValues = @()        #This array is a list of the unique values on all the faces of all nodes. 
                               #  A muti-value faces count as having two unique values. E.g. Hit&Crit counts as Hit and Crit, NOT as Hit&Crit
 $aryResult = @()              #This array is the current result
@@ -264,14 +264,14 @@ function Create-UniqueFacesTable {
 
         #step through each face in the unique faces array looking for a match
         $match = $false
-        foreach($uniqueFace in $script:aryUniqueValues) {
+        foreach($uniqueFace in $script:aryUniqueFaces) {
             if($face -eq $uniqueFace) {
                 $match = $true
             }
         }
         #if there is no match add it to the unique faces array
         if(!$match){
-            $script:aryUniqueValues += $face
+            $script:aryUniqueFaces += $face
         }
     }
 }
@@ -332,7 +332,7 @@ function Create-OccuranceSummaryTables {
     if($showProcessing) {write-host "  Create-OccuranceSummaryTables" -ForegroundColor green }
     
     #creat the Exact and OrBetter summary arrays
-    $faceCount = $script:aryUniqueValues.count
+    $faceCount = $script:aryUniqueFaces.count
     $script:aryBFExactlyXTable = New-Object 'object[,]' $faceCount,$([int]$NodeCount+2)
     $script:aryBFOrBetterTable = New-Object 'object[,]' $faceCount,$([int]$NodeCount+2)
     $script:aryBFExactXOrMoreTable = New-Object 'object[,]' $faceCount,$([int]$NodeCount+2)
@@ -342,18 +342,18 @@ function Create-OccuranceSummaryTables {
     $script:aryCalcOrBetterTable = New-Object 'object[,]' $faceCount,$([int]$NodeCount+2)
 
     #get row and column sizes
-    $rowCount = $($script:aryUniqueValues).count
+    $rowCount = $($script:aryUniqueFaces).count
     $colCount = $NodeCount +1
     
     #yyy
     #put the face name in the 0 element in the array
-    for($row = 0; $row -lt ($script:aryUniqueValues).count; $row++) {
-        $aryBFExactlyXTable[$row,0] = $script:aryUniqueValues[$row]
-        $aryCalcExactlyXTable[$row,0] = $script:aryUniqueValues[$row]
-        $aryCalcExactXOrMoreTable[$row,0] = $script:aryUniqueValues[$row]
-        $aryBFOrBetterTable[$row,0] = $script:aryUniqueValues[$row]
-        $aryCalcOrBetterTable[$row,0] = $script:aryUniqueValues[$row]
-        $aryBFExactXOrMoreTable[$row,0] = $script:aryUniqueValues[$row]
+    for($row = 0; $row -lt ($script:aryUniqueFaces).count; $row++) {
+        $aryBFExactlyXTable[$row,0] = $script:aryUniqueFaces[$row]
+        $aryCalcExactlyXTable[$row,0] = $script:aryUniqueFaces[$row]
+        $aryCalcExactXOrMoreTable[$row,0] = $script:aryUniqueFaces[$row]
+        $aryBFOrBetterTable[$row,0] = $script:aryUniqueFaces[$row]
+        $aryCalcOrBetterTable[$row,0] = $script:aryUniqueFaces[$row]
+        $aryBFExactXOrMoreTable[$row,0] = $script:aryUniqueFaces[$row]
         #zero the rest of the values in the arrays
         for($col = 1; $col -le $([int]$NodeCount)+1; $col++) {
             $aryBFExactlyXTable[$row,$col] = 0
@@ -377,7 +377,7 @@ function Create-HighLowSummaryTable {
     if($showProcessing) {write-host "  Create-HighLowSummaryTable" -ForegroundColor green }
 
     #get row and column sizes
-    $rowCount = $($script:aryUniqueValues).count
+    $rowCount = $($script:aryUniqueFaces).count
 
     #the columns
     $script:highLowColName = 0
@@ -391,8 +391,8 @@ function Create-HighLowSummaryTable {
     $script:aryHighLowTable = New-Object 'object[,]' $rowCount,$script:highLowWidth
     
     #put the face name in the 0 element in the array
-    for($row = 0; $row -lt ($script:aryUniqueValues).count; $row++) {
-        $aryHighLowTable[$row,$script:highLowColName] = $script:aryUniqueValues[$row]
+    for($row = 0; $row -lt ($script:aryUniqueFaces).count; $row++) {
+        $aryHighLowTable[$row,$script:highLowColName] = $script:aryUniqueFaces[$row]
         $aryHighLowTable[$row,$script:highLowColLowestBF] = 0
         $aryHighLowTable[$row,$script:highLowColLowestCalc] = 0
         $aryHighLowTable[$row,$script:highLowColHighestBF] = 0
@@ -415,9 +415,9 @@ function Create-MathSummaryTable {
     if($showProcessing) {write-host "  Create-MathSummaryTable" -ForegroundColor green }
     
     #find highest and lowest numeric value on a face
-    [int]$highestFace = $script:aryUniqueValues[0]
-    [int]$LowestFace = $script:aryUniqueValues[0]
-    foreach($face in $script:aryUniqueValues) {
+    [int]$highestFace = $aryUniqueFaces[0]
+    [int]$LowestFace = $aryUniqueFaces[0]
+    foreach($face in $aryUniqueFaces) {
         if([int]$face -gt $highestFace) { $highestFace = [int]$face }
         if([int]$face -lt $LowestFace) {$LowestFace = [int]$face }
     }
@@ -485,7 +485,7 @@ function Calculate-TheoreticalResults {
 # x is 0 to the maximum number of times it can occur.
 function Calculate-ExactlyX {
 
-    foreach($face in $script:aryUniqueValues) {
+    foreach($face in $script:aryUniqueFaces) {
 
         #Get node and face counts
         $matchingFaceCount =  Get-EqualToFaceCount -FaceName $face          #How many faces Match the current face
@@ -648,7 +648,7 @@ function Analyze-ResultForExactlyX {
 
     if($showProcessing) {write-host "  Analyze-ResultForExactlyX" -ForegroundColor green }
     
-    foreach ($face in $script:aryUniqueValues){
+    foreach ($face in $script:aryUniqueFaces){
         $occurances = 0
         foreach ($node in $script:aryResult) {
             if($face -eq $node) {
@@ -763,9 +763,9 @@ function Tally-OrBetterTable {
     #step through each colum
     for($col = 1; $col -le $NodeCount; $col++) {
         #Step through each row in the column from lowest value to highest
-        for($row = 0; $row -le $script:aryUniqueValues.count; $row++) {
+        for($row = 0; $row -le $script:aryUniqueFaces.count; $row++) {
             #add the values of all the higher value results to this result
-            for($shortRow = $row +1; $shortRow -le $script:aryUniqueValues.count; $shortRow++) {
+            for($shortRow = $row +1; $shortRow -le $script:aryUniqueFaces.count; $shortRow++) {
                 $script:aryBFOrBetterTable[$Row,$col] = $script:aryBFOrBetterTable[$Row,$col] + $($script:aryBFOrBetterTable[$shortRow,$col])
             }
         }
@@ -838,7 +838,7 @@ function Tally-ExactXOrMoreTable{
     if($showProcessing) {write-host "  Tally-ExactXOrMoreTable" -ForegroundColor green }
 
     #step through each row
-    for($row=0; $row -lt $($script:aryUniqueValues.count); $row++) {
+    for($row=0; $row -lt $($script:aryUniqueFaces.count); $row++) {
         #step through each node count in that row
         for($col=1; $col -le $NodeCount+1; $col++) {
             [int]$BFSum = 0
@@ -1052,7 +1052,7 @@ function Display-OccurnaceSummaryTable {
     #if no switch is true display nothing
     if(!$ExactlyX -and !$ExactXOrMore -and !$XOrBetter) {return}
 
-    #$rowCount = $($script:aryUniqueValues).count
+    #$rowCount = $($script:aryUniqueFaces).count
     $colCount = $NodeCount +2
 
     #generate output format
@@ -1146,7 +1146,7 @@ function Display-OccurnaceSummaryTableRows {
         [switch]$BruteForce
     )
 
-    $rowCount = $($script:aryUniqueValues).count
+    $rowCount = $($script:aryUniqueFaces).count
     for($row=0; $row -lt $rowCount;$row++) {
         $outData = @()     #initialize the data array to output the data
         $outData += ""
@@ -1522,7 +1522,7 @@ function Convert-FaceToRow {
         [string]$FaceName            #the name of the face to find
     )
 
-    $rowCount = $($script:aryUniqueValues).count -1
+    $rowCount = $($script:aryUniqueFaces).count -1
     for($row = $rowCount; $row -ge 0;$row--) {
         $colFace = $script:aryBFOrBetterTable[$row,0]
         if ($FaceName -eq $colFace) {
@@ -1542,7 +1542,7 @@ function Convert-RowToFace {
         [int]$RowNumber            #the number of the row to find
     )
 
-    $returnFace = $script:aryUniqueValues[$RowNumber]
+    $returnFace = $script:aryUniqueFaces[$RowNumber]
     return $returnFace
 }
 
@@ -1555,8 +1555,8 @@ function Get-UniqueFaceRow {
         [string]$FaceName
     )
 
-    for($i = 0; $i -lt $script:aryUniqueValues.count; $i++) {
-        if($script:aryUniqueValues[$i] -eq $FaceName) {
+    for($i = 0; $i -lt $script:aryUniqueFaces.count; $i++) {
+        if($script:aryUniqueFaces[$i] -eq $FaceName) {
             return $i
         }
     }
@@ -1573,7 +1573,7 @@ function Confirm-FacesAreNumeric {
 
 
     #if any face is not numeric then change process sums to false
-    foreach($face in $script:aryUniqueValues) {
+    foreach($face in $script:aryUniqueFaces) {
         if(isNumeric $face) {
         } else {
             $script:ShowSums = $false
