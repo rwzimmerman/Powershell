@@ -105,7 +105,7 @@ param(
 
 #Arrays
 $aryFaces = @()               #This array holds the value on each face of each node
-###$aryUniqueFaces = @()         #This array is a list of the unique faces on each node
+$aryUniqueFaces = @()         #This array is a list of the unique faces on each node
 $aryUniqueValues = @()        #This array is a list of the unique values on all the faces of all nodes. 
                               #  A muti-value faces count as having two unique values. E.g. Hit&Crit counts as Hit and Crit, NOT as Hit&Crit
 $aryResult = @()              #This array is the current result
@@ -264,14 +264,14 @@ function Create-UniqueFacesTable {
 
         #step through each face in the unique faces array looking for a match
         $match = $false
-        foreach($uniqueFace in $script:aryUniqueValues) {
+        foreach($uniqueFace in $script:aryUniqueFaces) {
             if($face -eq $uniqueFace) {
                 $match = $true
             }
         }
         #if there is no match add it to the unique faces array
         if(!$match){
-            $script:aryUniqueValues += $face
+            $script:aryUniqueFaces += $face
         }
     }
 }
@@ -312,9 +312,9 @@ function Create-UniqueValuesTable {
 
 
     #for debugging write out all the values in the unique value array
-    if($true) {
+    if($false) {
         foreach ($value in $script:aryUniqueValues) {
-            write-host $value -ForegroundColor Yellow
+            write-host $value -ForegroundColor blue
         }
     }
 }
@@ -362,6 +362,29 @@ function Create-OccuranceSummaryTables {
             $aryBFOrBetterTable[$row,$col] = 0
             $aryCalcOrBetterTable[$row,$col] = 0
             $aryBFExactXOrMoreTable[$row,$col] = 0
+        }
+    }
+}
+
+
+
+    
+##################################################################################################
+## Create summary tables for counting occurnaces.
+function Create-AcutalFacesSummaryTables {
+
+    if($showProcessing) {write-host "  Create-AcutalFacesSummaryTables" -ForegroundColor green }
+    
+    #creat the Exact and OrBetter summary arrays
+    $faceCount = $script:aryUniqueFaces.count
+    $script:aryAcutalFacesXTable = New-Object 'object[,]' $faceCount,$([int]$NodeCount+2)
+
+    #put the face name in the 0 element in the array
+    for($row = 0; $row -lt $faceCount; $row++) {
+        $aryAcutalFacesXTable[$row,0] = $script:aryUniqueFaces[$row]
+        #zero the rest of the values in the arrays
+        for($col = 1; $col -le $([int]$NodeCount)+1; $col++) {
+            $aryAcutalFacesXTable[$row,$col] = 0
         }
     }
 }
@@ -596,6 +619,9 @@ function Analyze-Result {
     if($showProcessing) {write-host ""}
 
     #only analyze for a result if it will be displayed
+
+
+
     if($ShowAllTables -or $ShowExacts)    {Analyze-ResultForExactlyX}
     if($ShowAllTables -or $ShowOrBetter)  {Analyze-ResultForXOrBetter}
     if($ShowAllTables -or $ShowHighLow)   {Analyze-ResultForHighAndLowFace}
@@ -656,7 +682,7 @@ function Analyze-ResultForExactlyX {
             }
         }
         #update the exact occurnace array
-        Incriment-SummaryArray -FaceName $face -OccCount $occurances -ExactlyX
+        Incriment-SummaryArray -FaceValue $face -OccCount $occurances -ExactlyX
     }
 }
 
@@ -691,8 +717,8 @@ function Analyze-ResultForHighAndLowFace {
         for($i = 0; $i -lt $script:aryResult.count; $i++) {
             #write-host "$($script:aryResult[$i])" -ForegroundColor red
             if($($script:aryResult[$i]) -eq "BJ") {
-                Incriment-SummaryArray -FaceName "BJ"  -LowFace -BruteForce
-                Incriment-SummaryArray -FaceName "BJ"  -HighFace -BruteForce
+                Incriment-SummaryArray -FaceValue "BJ"  -LowFace -BruteForce
+                Incriment-SummaryArray -FaceValue "BJ"  -HighFace -BruteForce
                 return
                 #return both high and lowest cards are BJ so no need to continue
             }
@@ -703,8 +729,8 @@ function Analyze-ResultForHighAndLowFace {
         for($i = 0; $i -lt $script:aryResult.count; $i++) {
             #write-host "$($script:aryResult[$i])" -ForegroundColor red
             if($($script:aryResult[$i]) -eq "RJ") {
-                Incriment-SummaryArray -FaceName "RJ" -LowFace -BruteForce
-                Incriment-SummaryArray -FaceName "RJ" -HighFace -BruteForce
+                Incriment-SummaryArray -FaceValue "RJ" -LowFace -BruteForce
+                Incriment-SummaryArray -FaceValue "RJ" -HighFace -BruteForce
                 return
                 #return both high and lowest cards are RJ so no need to continue
             }
@@ -713,13 +739,16 @@ function Analyze-ResultForHighAndLowFace {
 
     #write the lowest faces to the lowface table
     #$lowFace = $aryResultAsRowsSorted[0] 
+
+    write-host "aryResultAsRowsSorted[0]: $($aryResultAsRowsSorted[0])" -ForegroundColor green
+
     $faceName = Convert-RowToFace -RowNumber $aryResultAsRowsSorted[0]
-    Incriment-SummaryArray -FaceName $faceName -LowFace -BruteForce
+    Incriment-SummaryArray -FaceValue $faceName -LowFace -BruteForce
 
     #write the highest faces to the hightface table
     #$highFace = $aryResultAsRowsSorted[$colCount -1] 
     $faceName = Convert-RowToFace -RowNumber $aryResultAsRowsSorted[$colCount -1]
-    Incriment-SummaryArray -FaceName $faceName -HighFace -BruteForce
+    Incriment-SummaryArray -FaceValue $faceName -HighFace -BruteForce
 }
 
 
@@ -749,7 +778,7 @@ function Analyze-ResultForXOrBetter {
         #ascending order any values left must be of an equal or higher value.
         $quant = ($colCount) - $col
         $faceName = Convert-RowToFace -RowNumber $aryResultAsRowsSorted[$col]
-        Incriment-SummaryArray -FaceName $faceName -OccCount $quant -OrBetter -BruteForce
+        Incriment-SummaryArray -FaceValue $faceName -OccCount $quant -OrBetter -BruteForce
     }
 }
 
@@ -862,7 +891,7 @@ function Tally-ExactXOrMoreTable{
 #value to the proper summary array.
 function Incriment-SummaryArray {
     param(
-        [string]$FaceName,            #the name of the face to incriment
+        [string]$FaceValue,            #the name of the face to incriment
         [int]$OccCount,               #the number of times the face occured
         [int]$Tally,                  #the number of times the face/occurance combo occured
         [switch]$OrBetter,            #
@@ -873,8 +902,15 @@ function Incriment-SummaryArray {
         [switch]$BruteForce           #
     )
 
+    #xxx
+
+
+
+
+
+
     #the row and column to update
-    $row = Convert-FaceToRow -FaceName $FaceName
+    $row = Convert-FaceToRow -FaceName $FaceValue
 
     #update Exaclty X tables
     if ($ExactlyX) {
@@ -904,6 +940,15 @@ function Incriment-SummaryArray {
         }
         $script:aryHighLowTable[$row,$col] = $script:aryHighLowTable[$row,$col] + 1
     } 
+
+
+
+
+    
+
+
+
+
 }
 
 
@@ -1040,6 +1085,7 @@ function Display-HighLowTable {
 #Displays summary table for Occurnace type tables
 function Display-OccurnaceSummaryTable {
     param(
+        [switch]$ActualFaces,              #True if the Exact Occurnaces table should be displayed
         [switch]$ExactlyX,              #True if the Exact Occurnaces table should be displayed
         [switch]$ExactXOrMore,               #True if the ExactXOrMore table should be displayed
         [switch]$XOrBetter,             #True if the OrBetter table should be displayed
@@ -1050,7 +1096,7 @@ function Display-OccurnaceSummaryTable {
 
 
     #if no switch is true display nothing
-    if(!$ExactlyX -and !$ExactXOrMore -and !$XOrBetter) {return}
+    if(!$ActualFaces -and !$ExactlyX -and !$ExactXOrMore -and !$XOrBetter) {return}
 
     #$rowCount = $($script:aryUniqueValues).count
     $colCount = $NodeCount +2
@@ -1068,17 +1114,21 @@ function Display-OccurnaceSummaryTable {
     }
 
     #output the formatted line of data
-    if($ExactlyX) {
+    if($ActualFaces) {
+        $outTableTitle = "Actual Faces"
+        $outDescritption = "How many times a face occurs exactly X times (e.g. exacly two Hit & Hit faces vs. two hit values restults)."
+        $outDescritption2 = "Mostly good for debugging and confirming the algorythms are functioning properly."
+    } elseif($ExactlyX) {
         $outTableTitle = "Exactly X"
-        $outDescritption = "How many times a face occurs exactly X times (e.g. exacly two 3's)."
+        $outDescritption = "How many times a value occurs exactly X times (e.g. exacly two 3's)."
         $outDescritption2 = "Mostly good for debugging and confirming the algorythms are functioning properly."
     } elseif($ExactXOrMore) {
         $outTableTitle = "Exactly X Or More"
-        $outDescritption = "How many times a face occurs X times or more (e.g. two or more 3's)."
+        $outDescritption = "How many times a value occurs X times or more (e.g. two or more 3's)."
         $outDescritption2 = "Good for coin flips and game like Yahtee, where the exact value of the node is important."
     } elseif($XOrBetter) {
         $outTableTitle = "X Or Better"
-        $outDescritption = "How many times a face or better occurs X times or more (e.g. 2 or more 3+'s )."
+        $outDescritption = "How many times a value or better occurs X times or more (e.g. 2 or more 3+'s )."
         $outDescritption2 = "Good for dice pools like X-Wing where Hits and Crits (and maybe Focuses) damage ships."
     }
 
@@ -1268,6 +1318,7 @@ function Display-Tables {
     Display-ScenarioData
 
     if($ShowAllTables -or $ShowExacts) {
+        Display-OccurnaceSummaryTable -ActualFaces -ShowBF
         Display-OccurnaceSummaryTable -ExactlyX -ShowBoth
         Display-OccurnaceSummaryTable -ExactXOrMore -ShowBoth
     }
@@ -1542,6 +1593,9 @@ function Convert-RowToFace {
         [int]$RowNumber            #the number of the row to find
     )
 
+
+    write-host "row #: $RowNumber" -ForegroundColor green
+
     $returnFace = $script:aryUniqueValues[$RowNumber]
     return $returnFace
 }
@@ -1772,7 +1826,9 @@ Create-RestultArray
 Create-UniqueFacesTable
 Create-UniqueValuesTable -aryNode $script:aryFaces
 Create-OccuranceSummaryTables
+Create-AcutalFacesSummaryTables
 Create-HighLowSummaryTable
+
 
 if($ShowSums -or $ShowAllTables) {
     Confirm-FacesAreNumeric
