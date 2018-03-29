@@ -7,40 +7,22 @@
 
     .DESCRIPTION
         Terms
-        Occurnace - A single instance of a random event. (e.g. flipping three cards, or rolling a die)
-        Restult - All of the values, faces, etc. of a single instanace of an occurnace.  (e.g. 2 'threes' and 1 'queen' when drawing three cards)
+        Restult - All of the values, faces, etc. of a single instance of the scenario. (e.g. flipping three cards and getting 2 
+            'threes' and 1 'queen'; or rolling a die and getting a '6')
         Face - Each of the possible results of a node.  (e.g a 'three' on a die, or a 'queen' on a playing card)
         Value - The unit of a restult.  (e.g. if a result had 3 'hits' and 2 'crits' the values would be 'hit' and 'crit')
+        Occurnace - How many times a Face or Value is present in a Restult.  (e.g. if a Result gives: 'Crit', 'Hit' and 'Hit&Hit' the
+            Face Tallies would be 1 'Crit', 1 'Hit' and 1 'Hit&Hit'.  The Value Tallies would be 1 'Crit', 3 'Hit').  Sometimes
+            the script will refer to 'an occurance', this refers to a face or value occurring X times. (e.g. Tally the number of times
+            an occurnace (3 Aces) occured in the Restult.)
+        Tally - How many times a Face or Value/Occuance combo happens in a secnario.  (e.g. when rolling 2d6 there two different possible
+            outcomes (5+6 and 6+5) where there is an occurnace of 11.  To that Tally would be 2.)
         Node - A single randomizaion element (e.g. one die, one card, onc coin, etc.)
         Scenario - The parameters to be tested, including every possible restult/  (e.g. the odds of rolling 2,3,4...11,12 on 2 six-sided dice)
 
 
-        The script steps through every possible result a scenario can yeild.  Each result
-        is analyzed and the data summarized into tables showing how many "exact occurnace"
-        and how many "or better" matches occured.
-        Exact Occurance Match - This occurs when exaclty that number of the result occurs.  For example
-        if two 6's occured in a result it would be an exact match for 2x6, but not for 1x6.
-        Or Better Match - This occurs when the result or better occured. For example if 
-        two 6's occured in a result it would be an "or better" match for 2x6, 1x6 and 2x5, 
-        but not for 2x7 or 3x6.
 
-        The script assumes faces are input in order of value with the lowest on the left
-        and the highest on the right.
-        Example: 3,2,1 would give 1 the highest value, followed by 2, then 3.
-
-        If in a scenario 2 coins (nodes) were flipped, each having heads and
-        tails (2 faces) the scenario would have 4 possible results: HH, HT, TH, TT.
-
-        Or Better Summary
-        Face   1    2
-        Heads  4    4
-        Tails  3    1
-
-        Exact Occurnace Summary
-        Face   1    2
-        Heads  2    1   Meaning two of four results give exacly 1 head, one of four results give exacly 2 heads
-        Tails  2    1   Meaning two of four results give exacly 1 tails, one of four results give exacly 2 tails
-
+        
         
     
     .PARAMETER Nodes
@@ -115,27 +97,26 @@ $aryUniqueValues = @()        #This array is a list of the unique values on all 
                               #  A muti-value faces count as having two unique values. E.g. Hit&Crit counts as Hit and Crit, NOT as Hit&Crit
 $aryResult = @()              #This array is the current result
 
-#These are the summary arrays.  
-#They keep track of how many times a give result occures in the scenario.  The script 
-#calulates the highest possible result (r) and greatest #number of times that result 
-#can occur (o). It will then create a static array with o columns and r rows. 
-#I used static arrays because powershell handles dynamic arrays poorly. When adding
-#a row or column to an array, powershell copies the existing array to a new array and
-#adds the new row or column. For performance reasons I create a static array large
-#enough for all possible results.  
-#This means there may be extra rows.  E.g. when rolling a die with 2,4,6 as the faces
-#it is impossible to roll an odd number.  The arrays will have space for the impossible
-#results. It is faster to create a wasteful array than to calculate all possible results
-#and dynamically create the array.
+#Below are the summary arrays.  
+#They tally how many times a given result occurs in the scenario. When creating these arrays the script will how many rows and columns the
+#table will need and crate a static array to hold all the tally data.
+#I used static arrays because powershell handles dynamic arrays poorly. When adding #a row or column to an array, powershell copies the 
+#existing array to a new array and adds the new row or column. For performance reasons I create a static array large enough for all possible 
+#results.  
+
+#This means there may be extra rows.  E.g. when rolling a die with 2,4,6 as the faces #it is impossible to roll an odd number.  The arrays 
+#will have space for the impossible results. It is faster to create a wasteful array than to calculate all possible results and dynamically 
+#create the array.
+
 #Rows with 0 results will not be displayed.
 
 #This is a list of the summary tables that will be created.  BF stands for Brute Force
 #Calc stands for calculated.
 
-#$aryBFAcutalFacesTable = @()         #Probabiilty of the acutal face (as opposed to the value of the face) of the node will appear.
-#$aryBFExactlyXTable = @()          #Probability of a result occurning exactly X times (e.g. rolling exaclty two 5's)
-#$aryBFExactXOrMoreTable = @()      #Probablyily of a result occurning exactly X or more times (e.g. rolling two or more 5's)
-#$aryBFOrBetterTable = @()          #Probability of a result or a better result occurning (e.g. rolling two or more 5+'s) 
+#$aryBFAcutalFacesTable = @()       #Probabiilty of the acutal face (as opposed to the value of the face) of the node will appear.
+#$aryBFExactlyXTable = @()          #Probability of a face or value occurning exactly X times (e.g. rolling exaclty two 5's)
+#$aryBFExactXOrMoreTable = @()      #Probablyily of a face or value occurning exactly X or more times (e.g. rolling two or more 5's)
+#$aryBFOrBetterTable = @()          #Probability of a face or value or a better result occurning (e.g. rolling two or more 5+'s) 
 
 #$aryCalcExactlyXTable = @()        #These tables are exaclty the same as those above except they are calculated rather than brute force
 #$aryCalcExactXOrMoreTable = @()    #
@@ -148,7 +129,7 @@ $aryResult = @()              #This array is the current result
 $resultID = -1                  #The current result
 $showProcessing = $false        #True if processing info should be displayed to the screen
 $sumsWidth = 1                  #default value will be reset if numeric dice are used
-$maxValueCount = 0              #the maximum number of times a value can occure in one occurnace
+$maxValueCount = 0              #The highest possible tally for a value in a single result
 $systemNote = ""                #Note do display with secenario summary
 $nodeDelimiter = "&"            #Delimits values on a a multi-value face (e.g. Hit&Hit for a face with two Hit restults)
 
@@ -261,6 +242,8 @@ function Create-RestultArray {
 
 ##################################################################################################
 # Determing the maximum number of times a value can occur in an instance
+# If a scenario rolls 3 dice that have 'Blank' and "Hit&Hit" on the faces then
+# thre can be up to 3 occurances of Blank and 6 occurances of Hit.
 function Determine-MaxValueOccurnaces {
 
     #most times any value occurs on a single face of any node
@@ -281,8 +264,6 @@ function Determine-MaxValueOccurnaces {
     #write the maximum number of times a value can occure to a script scoped variable
     $script:maxValueCount = $theMost * $script:NodeCount
 
-    write-host "maxValueCount: $script:maxValueCount  ($theMost * $script:NodeCount)" -ForegroundColor green
-
 }
 
 
@@ -293,7 +274,7 @@ function Determine-MaxValueOccurnaces {
 
 ##################################################################################################
 ## Create a table containing a list of each unique face on all nodes.
-## This table lists each face once regardless of how many times it occurs on nodes.
+## This table lists each face once regardless of how many times it appears on the nodes.
 ## For example if the faces are: Hit, Hit, Hit&Hit, Hit&Hit, and Crit this array will contain Hit, Hit&Hit and Crit. 
 function Create-UniqueFacesTable {
     
@@ -327,7 +308,7 @@ function Create-UniqueFacesTable {
 
 ##################################################################################################
 ## Create a table containing a list of each unique value on all faces of all nodes.
-## This table lists each value once regardless of how many times it occurs on nodes and faces.
+## This table lists each value once regardless of how many times it appears on nodes and faces.
 ## For example if the faces are: Hit, Hit&Hit, Hit&Hit&Hit, Hit&Crit and Crit this array will contain Hit and Crit. 
 function Create-UniqueValuesTable {
     param (
@@ -374,26 +355,29 @@ function Create-UniqueValuesTable {
 
     
 ##################################################################################################
-## Create summary tables for counting occurnaces.
+# Create summary tables for tallying results by the number of occurances.  (e.g. how many times 
+# do 3 aces appear in the result set.)
+# Vetted 1.0
 function Create-OccuranceSummaryTables {
 
     if($showProcessing) {write-host "  Create-OccuranceSummaryTables" -ForegroundColor green }
     
-    #creat the Exact and OrBetter summary arrays
-    $uniqueValueCount = $script:aryUniqueValues.count
-    $script:aryBFExactlyXTable = New-Object 'object[,]' $uniqueValueCount,$($script:maxValueCount + 2)
-    $script:aryBFOrBetterTable = New-Object 'object[,]' $uniqueValueCount,$($script:maxValueCount + 2)
-    $script:aryBFExactXOrMoreTable = New-Object 'object[,]' $uniqueValueCount,$($script:maxValueCount + 2)
+    #Create one row for each unique value in the node pool.
+    $rowCount = $script:aryUniqueValues.count
 
-    $script:aryCalcExactlyXTable = New-Object 'object[,]' $uniqueValueCount,$($script:maxValueCount + 2)
-    $script:aryCalcExactXOrMoreTable = New-Object 'object[,]' $uniqueValueCount,$($script:maxValueCount + 2)
-    $script:aryCalcOrBetterTable = New-Object 'object[,]' $uniqueValueCount,$($script:maxValueCount + 2)
-
-    #get row and column sizes
-    $rowCount = $($script:aryUniqueValues).count
+    #Create a column for the value name, and for each value from 0 to the highest possible occurance of any value.
     $colCount = $script:maxValueCount + 2
-    
-    #yyy
+
+    #Create the Brute Force arrays.
+    $script:aryBFExactlyXTable = New-Object 'object[,]' $rowCount,$colCount
+    $script:aryBFOrBetterTable = New-Object 'object[,]' $rowCount,$colCount
+    $script:aryBFExactXOrMoreTable = New-Object 'object[,]' $rowCount,$colCount
+
+    #Create the Calcuated arrays.
+    $script:aryCalcExactlyXTable = New-Object 'object[,]' $rowCount,$colCount
+    $script:aryCalcExactXOrMoreTable = New-Object 'object[,]' $rowCount,$colCount
+    $script:aryCalcOrBetterTable = New-Object 'object[,]' $rowCount,$colCount
+
     #put the face name in the 0 element in the array
     for($row = 0; $row -lt ($script:aryUniqueValues).count; $row++) {
         $aryBFExactlyXTable[$row,0] = $script:aryUniqueValues[$row]
@@ -403,7 +387,7 @@ function Create-OccuranceSummaryTables {
         $aryCalcOrBetterTable[$row,0] = $script:aryUniqueValues[$row]
         $aryBFExactXOrMoreTable[$row,0] = $script:aryUniqueValues[$row]
         #zero the rest of the values in the arrays
-        for($col = 1; $col -le $([int]$NodeCount)+1; $col++) {
+        for($col = 1; $col -lt $colCount; $col++) {
             $aryBFExactlyXTable[$row,$col] = 0
             $aryCalcExactlyXTable[$row,$col] = 0
             $aryCalcExactXOrMoreTable[$row,$col] = 0
@@ -418,20 +402,29 @@ function Create-OccuranceSummaryTables {
 
     
 ##################################################################################################
-## Create summary tables for counting occurnaces.
+# Create summary tables for tallying how many times a face appears in a result.  (e.g. If rolling 
+# a die with faces: 'Blank', 'Hit', 'Hit&Hit', 'Crit' this table would show how many results had
+# 1 "Blank"; 2 'Blank's; 1 'Hit'; 2 'Hit's; 1 'Hit&Hit', etc...).  Note a 'Hit&Hit' is not two 
+# 'Hit's, they are seperate for the purposes of this table.
+# Vetted 1.0
 function Create-AcutalFacesSummaryTables {
 
     if($showProcessing) {write-host "  Create-AcutalFacesSummaryTables" -ForegroundColor green }
-    
-    #creat the Exact and OrBetter summary arrays
-    $faceCount = $script:aryUniqueFaces.count
-    $script:aryBFAcutalFacesTable = New-Object 'object[,]' $faceCount,$([int]$script:maxValueCount+2)
+
+    #Create one row for each unique Face in the node pool.
+    $rowCount = $script:aryUniqueFaces.count
+
+    #Create a column for the value name, for 0, and each node in the node pool.
+    $colCount = $script:NodeCount + 2
+        
+    #creat the table
+    $script:aryBFAcutalFacesTable = New-Object 'object[,]' $rowCount,$colCount
 
     #put the face name in the 0 element in the array
-    for($row = 0; $row -lt $faceCount; $row++) {
+    for($row = 0; $row -lt $rowCount; $row++) {
         $aryBFAcutalFacesTable[$row,0] = $script:aryUniqueFaces[$row]
         #zero the rest of the values in the arrays
-        for($col = 1; $col -le $([int]$script:maxValueCount)+1; $col++) {
+        for($col = 1; $col -lt $colCount; $col++) {
             $aryBFAcutalFacesTable[$row,$col] = 0
         }
     }
@@ -589,7 +582,7 @@ function Calculate-ExactlyX {
             #write-host "$face - PopSize: $totalFaceCount / SucStates: $matchingFaceCount / Draws: $nodecount / ObsSuc: $occCount / Chance: $ExacltyXChance" -ForegroundColor Yellow
 
             #write the chance to the summary table
-            $row = Convert-FaceToRow -FaceName $face
+            $row = Convert-FaceToUniqueValuesRow -value $face
             $col = $occCount +1
             $script:aryCalcExactlyXTable[$row,$col] = $ExacltyXChance
         }
@@ -666,13 +659,8 @@ function Analyze-Result {
 
     if($showProcessing) {write-host ""}
 
-    #only analyze for a result if it will be displayed
 
-    #xxx
-
-
-    write-host ""
-    Display-CurrentRestult
+    #Display-CurrentRestult
 
 
     if($ShowAllTables -or $ShowExacts)    {Analyze-ResultForExactlyX}
@@ -721,30 +709,33 @@ function Analyze-ResultForMathValues {
 
 
 
+
 ##################################################################################################
-#xxx
+# Counts up the number of times each Face (not value) Occurs and writes that data to the summary tables.
+# E.g. If 'Hit', 'Hit&Hit', 'Crit' and 'Crit' appeared in the restult this function would write
+# 1 Hit, 1 'Hit&Hit' and 2 'Crit' results to the Actual Faces table.
+#vetted 1.0
 function Analyze-ResultActualFaces {
     if($showProcessing) {write-host "  Analyze-ResultActualFaces" -ForegroundColor green }
 
-    
-    #step through each face in the unique faces array
+    #Step through each face in the unique faces array
     foreach($uniqueFace in $script:aryUniqueFaces) {        
-        Write-Host $uniqueFace -ForegroundColor green
-        #step through each result
+        #Initialize the Occurance counter to 0 for this Face
+        $occCount = 0
+        #step through each face in the result
         foreach($face in $script:aryResult) {
             if ($uniqueFace -eq $face) {
-                write-host "Match   : $face = $uniqueface" -ForegroundColor green
-            } else {
-                write-host "No Match: $face != $uniqueface" -ForegroundColor red
+                #if the restult's face matches the current face incriment the counter
+                $occCount++
             }
         }
+        Incriment-SummaryArray -Face $face -OccCount $occCount -ActualFaces
     }
-
-
-
-
-
 }
+
+
+
+
 
 ##################################################################################################
 #Looks at the current result and incriments the occurance table by 1 for the exaclt number
@@ -761,7 +752,7 @@ function Analyze-ResultForExactlyX {
             write-host "" 
             Display-CurrentRestult
         }
-        $occurances = 0
+        $tally = 0
         #step through each node of the result
         foreach ($node in $script:aryResult) {
             #step through each value on the face of the node
@@ -769,7 +760,7 @@ function Analyze-ResultForExactlyX {
             foreach($faceValue in $faceValueList) {
                 if($faceValue -eq $value) {
                     #if there is a match incriment the count for that value
-                    $occurances++
+                    $tally++
                     if($showProcessing) {write-host "    Incriment:  $faceValue = $value" -ForegroundColor green}
                 }else{
                     if($showProcessing) {write-host "    No Match:   $faceValue != $value" -ForegroundColor red}
@@ -779,10 +770,10 @@ function Analyze-ResultForExactlyX {
         #update the exact occurnace array
         #This is run for every value.  Even if there are 0 instances of that value present that is counted in the exact occurnaces array.
         if($showProcessing) {
-            write-host "    $value occ: $occurances" -ForegroundColor green 
+            write-host "    $value occ: $tally" -ForegroundColor green 
         }
 
-        Incriment-SummaryArray -FaceValue $value -OccCount $occurances -ExactlyX
+        Incriment-SummaryArray -Value $value -OccCount $tally -ExactlyX
     }
 }
 
@@ -798,10 +789,12 @@ function Analyze-ResultForHighAndLowFace {
 
     if($showProcessing) {write-host "  Analyze-ResultForXOrBetter" -ForegroundColor green }
 
+
+
     #Create a copy of the current result and convert the faces to numbers
     $aryResultAsRows = @()
     for($i = 0; $i -lt $script:aryResult.count; $i++) {
-        $row = Convert-FaceToRow -FaceName $script:aryResult[$i]
+        $row = Convert-FaceToUniqueValuesRow -value $script:aryResult[$i]
         $aryResultAsRows += $row
     }
 
@@ -817,8 +810,8 @@ function Analyze-ResultForHighAndLowFace {
         for($i = 0; $i -lt $script:aryResult.count; $i++) {
             #write-host "$($script:aryResult[$i])" -ForegroundColor red
             if($($script:aryResult[$i]) -eq "BJ") {
-                Incriment-SummaryArray -FaceValue "BJ"  -LowFace -BruteForce
-                Incriment-SummaryArray -FaceValue "BJ"  -HighFace -BruteForce
+                Incriment-SummaryArray -Value "BJ"  -LowFace -BruteForce
+                Incriment-SummaryArray -Value "BJ"  -HighFace -BruteForce
                 return
                 #return both high and lowest cards are BJ so no need to continue
             }
@@ -829,8 +822,8 @@ function Analyze-ResultForHighAndLowFace {
         for($i = 0; $i -lt $script:aryResult.count; $i++) {
             #write-host "$($script:aryResult[$i])" -ForegroundColor red
             if($($script:aryResult[$i]) -eq "RJ") {
-                Incriment-SummaryArray -FaceValue "RJ" -LowFace -BruteForce
-                Incriment-SummaryArray -FaceValue "RJ" -HighFace -BruteForce
+                Incriment-SummaryArray -Value "RJ" -LowFace -BruteForce
+                Incriment-SummaryArray -Value "RJ" -HighFace -BruteForce
                 return
                 #return both high and lowest cards are RJ so no need to continue
             }
@@ -843,12 +836,12 @@ function Analyze-ResultForHighAndLowFace {
     write-host "aryResultAsRowsSorted[0]: $($aryResultAsRowsSorted[0])" -ForegroundColor green
 
     $faceName = Convert-RowToFace -RowNumber $aryResultAsRowsSorted[0]
-    Incriment-SummaryArray -FaceValue $faceName -LowFace -BruteForce
+    Incriment-SummaryArray -Value $faceName -LowFace -BruteForce
 
     #write the highest faces to the hightface table
     #$highFace = $aryResultAsRowsSorted[$colCount -1] 
     $faceName = Convert-RowToFace -RowNumber $aryResultAsRowsSorted[$colCount -1]
-    Incriment-SummaryArray -FaceValue $faceName -HighFace -BruteForce
+    Incriment-SummaryArray -Value $faceName -HighFace -BruteForce
 }
 
 
@@ -863,7 +856,7 @@ function Analyze-ResultForXOrBetter {
     #Create a copy of the current result and convert the faces to numbers
     $aryResultAsRows = @()
     for($i = 0; $i -lt $script:aryResult.count; $i++) {
-        $row = Convert-FaceToRow -FaceName $script:aryResult[$i]
+        $row = Convert-FaceToUniqueValuesRow -value $script:aryResult[$i]
         $aryResultAsRows += $row 
     }
 
@@ -878,7 +871,7 @@ function Analyze-ResultForXOrBetter {
         #ascending order any values left must be of an equal or higher value.
         $quant = ($colCount) - $col
         $faceName = Convert-RowToFace -RowNumber $aryResultAsRowsSorted[$col]
-        Incriment-SummaryArray -FaceValue $faceName -OccCount $quant -OrBetter -BruteForce
+        Incriment-SummaryArray -Value $faceName -OccCount $quant -OrBetter -BruteForce
     }
 }
 
@@ -904,12 +897,15 @@ function Tally-OrBetterTable {
 
 
 ##################################################################################################
-#
+#Tally how many times a sum or more resulted via the BF method.
+#Durring processing the exact number of times a result was present is written to this table. This
+#function steps through each column (from bottom to top) and updates the tally for each row
+#to be the tally for that row and every row above it, since those rows are 'more' than that row.
 function Tally-SumOrMoreColumn {
     
         if($showProcessing) {write-host "  Tally-SumOrMoreColumn" -ForegroundColor green }
     
-        $CountColumn = $script:sumsColOrMoreBF        #The column holding the number of matching occurances
+        $col = $script:sumsColOrMoreBF        #This column contains the Tallies for if a sum or better was rolled.
     
         #get the number of rows to process
         $rowCount = $($script:arySumsTable).count / $script:sumsWidth
@@ -918,10 +914,10 @@ function Tally-SumOrMoreColumn {
         for($row = 0; $row -le $rowCount; $row++) {
             #Step through each row after the current row
             for($shortRow = $row +1; $shortRow -le $rowCount; $shortRow++) {
-                #If the current row's total is more than 0 then all higher results to this occurance total since they are "more"
-                #IF the current row's total is 0 then is is not a possible result and should stay at 0 occurances
-                if ($script:arySumsTable[$Row,$CountColumn] -gt 0) {
-                   $script:arySumsTable[$Row,$CountColumn] = $script:arySumsTable[$Row,$CountColumn] + $($script:arySumsTable[$shortRow,$CountColumn])
+                #If the row's tally is more than 0, add all higher result tallies to this row, since their value is more.
+                #If the row's tally is 0 then it is not a possible result (e.g. 1 on 2d6) and should be left at 0 tally.
+                if ($script:arySumsTable[$row,$col] -gt 0) {
+                   $script:arySumsTable[$row,$col] = $script:arySumsTable[$row,$col] + $($script:arySumsTable[$shortRow,$col])
                 }
             }
         }
@@ -929,13 +925,15 @@ function Tally-SumOrMoreColumn {
     
     
 ##################################################################################################
-#Count up the number of times an outcome or any value less than that outcome occurs in the
-#math summary table.
+#Tally how many times a sum or less resulted via the BF method.
+#Durring processing the exact number of times a result was present is written to this table. This
+#function steps through each column (from top to bottom) and updates the tally for each row
+#to be the tally for that row and every row below it, since those rows are 'less' than that row.
 function Tally-SumOrLessColumn {
     
         if($showProcessing) {write-host "  Tally-SumOrLessColumn" -ForegroundColor green }
     
-        $CountColumn = $script:sumsColOrLessBF          #The column holding the number of matching occurances
+        $col = $script:sumsColOrLessBF          #This column contains the Tallies for if a sum or less was rolled.
     
         #get the number of rows to process
         $rowCount = $($script:arySumsTable).count / $script:sumsWidth
@@ -945,10 +943,10 @@ function Tally-SumOrLessColumn {
         for($row = $rowCount; $row -ge 0; $row--) {
                 #Step through each row after the current row
             for($shortRow = $row -1; $shortRow -ge 0; $shortRow--) {
-                #If the current row's total is more than 0 then all lower results to this occurance total since they are "more"
-                #IF the current row's total is 0 then is is not a possible result and should stay at 0 occurances
-                if ($script:arySumsTable[$Row,$CountColumn] -gt 0) {
-                   $script:arySumsTable[$Row,$CountColumn] = $script:arySumsTable[$Row,$CountColumn] + $($script:arySumsTable[$shortRow,$CountColumn])
+                #If the row's tally is more than 0, add all lower result tallies to this row, since their value is less.
+                #If the row's tally is 0 then it is not a possible result (e.g. 1 on 2d6) and should be left at 0 tally.
+                if ($script:arySumsTable[$row,$col] -gt 0) {
+                   $script:arySumsTable[$row,$col] = $script:arySumsTable[$row,$col] + $($script:arySumsTable[$shortRow,$col])
                 }
             }
         }
@@ -960,7 +958,7 @@ function Tally-SumOrLessColumn {
 
 
 ##################################################################################################
-#Count up the number of times an outcome or any value greater than that outcome occurs in the
+#Count up the number of times a restult or any value greater than that result happens in the
 #math summary table.
 function Tally-ExactXOrMoreTable{
 
@@ -991,7 +989,8 @@ function Tally-ExactXOrMoreTable{
 #value to the proper summary array.
 function Incriment-SummaryArray {
     param(
-        [string]$FaceValue,            #the name of the face to incriment
+        [string]$Face,           #the name of the face to incriment
+        [string]$Value,           #the name of the face to incriment
         [int]$OccCount,               #the number of times the face occured
         [int]$Tally,                  #the number of times the face/occurance combo occured
         [switch]$OrBetter,            #
@@ -1003,29 +1002,28 @@ function Incriment-SummaryArray {
         [switch]$BruteForce           #
     )
 
+
     #xxx
     #the row and column to update
     #write-host "    Incriment-SummaryArray: $FaceValue - row: $row Count: $OccCount" -ForegroundColor blue
 
-    #update Exaclty X tables
+
+    #Update Actual Faces tables
     if ($ActualFaces) {
-        $row = Convert-UniqueValueToRow $FaceValue
+        $row = Convert-FaceToUniqueFaceRow -Face $Face
         $col = $OccCount +1
-        #write-host "Incriment-SummaryArray r/c: $row/$col" -ForegroundColor blue
-        #$script:aryBFExactlyXTable[$row,$col] = $script:$aryBFAcutalFacesTable[$row,$col] +1
-        #xxxxxx
+        $script:aryBFAcutalFacesTable[$row,$col] = $script:aryBFAcutalFacesTable[$row,$col] +1
     }
     
     #update Exaclty X tables
     if ($ExactlyX) {
-        $row = Convert-FaceToRow -FaceName $FaceValue
+        $row = Convert-FaceToUniqueValuesRow -value $Value
         $col = $OccCount +1
-        #write-host "Incriment-SummaryArray r/c: $row/$col" -ForegroundColor blue
         $script:aryBFExactlyXTable[$row,$col] = $script:aryBFExactlyXTable[$row,$col] +1
     
     #update X Or Better tables
     } elseif ($OrBetter) {
-        $row = Convert-FaceToRow -FaceName $FaceValue
+        $row = Convert-FaceToUniqueValuesRow -value $Value
         if($BruteForce) {
             $col = $OccCount +1
             $script:aryBFOrBetterTable[$row,$col] = $script:aryBFOrBetterTable[$row,$col] +1
@@ -1036,7 +1034,7 @@ function Incriment-SummaryArray {
 
     #udpate High Face    
     } elseif ($HighFace -or $LowFace) {
-        $row = Convert-FaceToRow -FaceName $FaceValue
+        $row = Convert-FaceToUniqueValuesRow -value $Value
         if       ($HighFace -and $BruteForce) {
             $col = $script:highLowColHighestBF
         } elseif ($HighFace -and $Calculated) {
@@ -1708,8 +1706,49 @@ function Convert-UniqueValueToRow {
 
 
 ##################################################################################################
+#Returns the row number of a face in the Unique Faces table
+#vetted 1.0
+function Convert-FaceToUniqueFaceRow {
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$Face            #the name of the face to find
+    )
+
+    #step through each face in the Unique Faces array until a match is found
+    $rowCount = $script:aryUniqueFaces.Count
+    for($row = 0; $row -lt $rowCount; $row++) {
+        if($Face -eq $script:aryUniqueFaces[$row]){
+            return $row
+        }
+    }
+}
+
+
+##################################################################################################
+#Returns the row number of a face in the Unique Values table
+#vetted 1.0
+function Convert-FaceToUniqueValuesRow {
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$Value            #the name of the face to find
+    )
+
+    #step through each face in the Unique Faces array until a match is found
+    $rowCount = $script:aryUniqueValues.Count
+    for($row = 0; $row -lt $rowCount; $row++) {
+        if($Value -eq $script:aryUniqueValues[$row]){
+            return $row
+        }
+    }
+}
+
+
+
+
+
+##################################################################################################
 #Returns the row number of a given face value
-function Convert-FaceToRow {
+function DELETE-Convert-FaceToRow {
     param(
         [Parameter(Mandatory=$true)]
         [string]$FaceName            #the name of the face to find
