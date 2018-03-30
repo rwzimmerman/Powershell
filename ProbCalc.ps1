@@ -214,6 +214,8 @@ if($XWingAtt) {
 
 
 $ShowExacts = $true
+$ShowActualFaces = $true
+
 
 #estimate the number of results for the status bar
 #$resultCount = 0
@@ -252,7 +254,11 @@ function Determine-MaxValueOccurnaces {
     #step through each face of each node
     foreach($face in $script:aryFaces) {
         #split the face into individual values
-        $faceValues = $face.split("{$nodeDelimiter}")
+        if(isNumeric $face) {
+            $faceValues = $face
+        }else{
+            $faceValues = $face.split("{$nodeDelimiter}")
+        }
         #count how many times each value occurs on the face
         foreach($faceValue in $faceValues) {
             $matcheList = [regex]::Matches($face,$faceValue)
@@ -322,7 +328,11 @@ function Create-UniqueValuesTable {
     foreach($face in $aryNode) {
 
         #break the face into individual values and step through each value
-        $faceValues = $face.split("{$nodeDelimiter}")
+        if(isNumeric $face) {
+            $faceValues = $face
+        }else{
+            $faceValues = $face.split("{$nodeDelimiter}")
+        }
         foreach($value in $faceValues) {
 
             #step through each face in the unique faces array looking for a match
@@ -620,7 +630,7 @@ function Generate-BruteForceResult {
         } else {
             $script:resultID = $script:resultID +1
             Write-Progress -Activity "Generating Results" -status "Result $script:resultID of $script:estResultCount" -percentComplete ($script:resultID / $script:estResultCount * 100)
-            Analyze-Result 
+            Analyze-Result
         }
     }
 }
@@ -653,7 +663,6 @@ function Create-DrawPool {
 
 ##################################################################################################
 #Looks at the current result and writes data to the summary tables
-#
 
 function Analyze-Result {
 
@@ -663,12 +672,11 @@ function Analyze-Result {
     #Display-CurrentRestult
 
 
-    if($ShowAllTables -or $ShowExacts)    {Analyze-ResultForExactlyX}
+    if($ShowAllTables -or $ShowExacts)       {Analyze-ResultForExactlyX}
     if($ShowAllTables -or $ShowActualFaces)  {Analyze-ResultActualFaces}
-
-   # if($ShowAllTables -or $ShowOrBetter)  {Analyze-ResultForXOrBetter}
-   # if($ShowAllTables -or $ShowHighLow)   {Analyze-ResultForHighAndLowFace}
-   # if($ShowSums)      {Analyze-ResultForMathValues}
+    #if($ShowAllTables -or $ShowOrBetter)  {Analyze-ResultForXOrBetter}
+    #if($ShowAllTables -or $ShowHighLow)   {Analyze-ResultForHighAndLowFace}
+    #if($ShowSums)      {Analyze-ResultForMathValues}
 }
 
 ##################################################################################################
@@ -835,12 +843,12 @@ function Analyze-ResultForHighAndLowFace {
 
     write-host "aryResultAsRowsSorted[0]: $($aryResultAsRowsSorted[0])" -ForegroundColor green
 
-    $faceName = Convert-RowToFace -RowNumber $aryResultAsRowsSorted[0]
+    $faceName = Convert-RowToUniqueValue -Row $aryResultAsRowsSorted[0]
     Incriment-SummaryArray -Value $faceName -LowFace -BruteForce
 
     #write the highest faces to the hightface table
     #$highFace = $aryResultAsRowsSorted[$colCount -1] 
-    $faceName = Convert-RowToFace -RowNumber $aryResultAsRowsSorted[$colCount -1]
+    $faceName = Convert-RowToUniqueValue -Row $aryResultAsRowsSorted[$colCount -1]
     Incriment-SummaryArray -Value $faceName -HighFace -BruteForce
 }
 
@@ -870,7 +878,7 @@ function Analyze-ResultForXOrBetter {
         #plus any nodes left to evaluate, since the result has been sorted in
         #ascending order any values left must be of an equal or higher value.
         $quant = ($colCount) - $col
-        $faceName = Convert-RowToFace -RowNumber $aryResultAsRowsSorted[$col]
+        $faceName = Convert-RowToUniqueValue -Row $aryResultAsRowsSorted[$col]
         Incriment-SummaryArray -Value $faceName -OccCount $quant -OrBetter -BruteForce
     }
 }
@@ -1001,12 +1009,6 @@ function Incriment-SummaryArray {
         [switch]$Calculated,          #
         [switch]$BruteForce           #
     )
-
-
-    #xxx
-    #the row and column to update
-    #write-host "    Incriment-SummaryArray: $FaceValue - row: $row Count: $OccCount" -ForegroundColor blue
-
 
     #Update Actual Faces tables
     if ($ActualFaces) {
@@ -1767,18 +1769,14 @@ function DELETE-Convert-FaceToRow {
 }
 
 ##################################################################################################
-#Returns the face name of a given row number
-function Convert-RowToFace {
+#Returns the value name of a give row in the Unique Values table
+#Vetted 1.0
+function Convert-RowToUniqueValue {
     param(
         [Parameter(Mandatory=$true)]
-        [int]$RowNumber            #the number of the row to find
+        [int]$Row            #the number of the row to find
     )
-
-
-    write-host "row #: $RowNumber" -ForegroundColor green
-
-    $returnFace = $script:aryUniqueValues[$RowNumber]
-    return $returnFace
+    return $script:aryUniqueValues[$Row]
 }
 
 
@@ -1844,6 +1842,7 @@ function Confirm-FacesAreNumeric {
 
 ######################################
 # Return true if a string is numeric
+#vetted 1.0
 function isNumeric ($x) {
     try {
         0 + $x | Out-Null
