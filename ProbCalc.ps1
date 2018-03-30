@@ -63,6 +63,11 @@ param(
     #Systems
     [switch]$XWingAtt,              #Use XWing attack dice are being used 
     [switch]$XWingDef,              #Use XWing defence dice are being used 
+    [switch]$SWLWhite6,             #Use Star Wars Legion White 6 Sided die
+    [switch]$SWLRed6,               #Use Star Wars Legion Red 6 Sided die
+    [switch]$SWLWhite8,             #Use Star Wars Legion White 8 Sided die
+    [switch]$SWLRed8,               #Use Star Wars Legion Red 8 Sided die
+    [switch]$SWLBlack8,             #Use Star Wars Legion Black 8 Sided die
     [switch]$MalifauxSuited,        #Use an exhausting deck of cards and malifaux joker logic
     [switch]$MalifauxUnsuited,      #Use an exhausting deck of cards, where the suits do not matter and malifaux joker logic
     [switch]$d4,                    #Use a d4 (1,2,3,4)
@@ -152,6 +157,26 @@ if($XWingAtt) {
 }elseif($XWingDef) {
     $systemName = "X-Wing Defence Dice"
     $aryFaces = @("Blank","Blank","Blank","Focus","Focus","Evade","Evade","Evade")
+    $ShowOrBetter = $true
+}elseif($SWLWhite6) {
+    $systemName = "Star Wars Legion White d6"
+    $aryFaces = @("Blank","Blank","Blank","Blank","Surge","Block")
+    $ShowOrBetter = $true
+}elseif($SWLRed6) {
+    $systemName = "Star Wars Legion Red d6"
+    $aryFaces = @("Blank","Blank","Surge","Block","Block","Block")
+    $ShowOrBetter = $true
+}elseif($SWLWhite8) {
+    $systemName = "Star Wars Legion White d8"
+    $aryFaces = @("Blank","Blank","Blank","Blank","Blank","Surge","Hit","Crit")
+    $ShowOrBetter = $true
+}elseif($SWLBlack8) {
+    $systemName = "Star Wars Legion Black d8"
+    $aryFaces = @("Blank","Blank","Blank","Surge","Hit","Hit","Hit","Crit")
+    $ShowOrBetter = $true
+}elseif($SWLRed8) {
+    $systemName = "Star Wars Legion Red d8"
+    $aryFaces = @("Blank","Surge","Hit","Hit","Hit","Hit","Hit","Crit")
     $ShowOrBetter = $true
 }elseif($MalifauxUnsuited) {
     $systemName = "Malifaux Unsuited Cards"
