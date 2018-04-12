@@ -1,15 +1,2 @@
 
-=======================================
-Working Tables
-=======================================
-Exactly X		BF	C
-Exactly X Or More	BF	C
-X Or Better		BF
-LowestFace		BF	
-HighestFace		BF	
-
-Exact Sum		BF		
-Exact Sum Or Better	BF
-
-
-
+BAK 3 last version before adding support for different dice.

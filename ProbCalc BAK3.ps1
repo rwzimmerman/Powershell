@@ -61,23 +61,23 @@
 param(
     [int]$NodeCount=2,              #the number of elements in the randomization (e.g. 3 cards, 2 dice, etc.)
     #Systems
-    [int]$XWingAtt,              #Use XWing attack dice are being used 
-    [int]$XWingDef,              #Use XWing defence dice are being used 
-    [int]$SWLDefWhite,             #Use Star Wars Legion White 6 Sided die
-    [int]$SWLDefRed,               #Use Star Wars Legion Red 6 Sided die
-    [int]$SWLAttWhite,             #Use Star Wars Legion White 8 Sided die
-    [int]$SWLAttRed,               #Use Star Wars Legion Red 8 Sided die
-    [int]$SWLAttBlack,             #Use Star Wars Legion Black 8 Sided die
-    [int]$d4,                    #Use a d4 (1,2,3,4)
-    [int]$d6,                    #Use a d4 (1,2,3,4,5,6)
-    [int]$d8,                    #Use a d4 (1,2,3,4,5,6,7,8)
-    [int]$d10,                   #Use a d4 (1,2,3,4,5,6,7,8,9,10)
-    [int]$d12,                   #Use a d4 (1,2,3,4,5,6,7,8,9,10,11,12)
-    [int]$d20,                   #Use a d4 (1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20)
-    [int]$dx,                    #Use a test die
-    [int]$Coin,                  #Use a coin (Heads,Tails)
+    [switch]$XWingAtt,              #Use XWing attack dice are being used 
+    [switch]$XWingDef,              #Use XWing defence dice are being used 
+    [switch]$SWLWhite6,             #Use Star Wars Legion White 6 Sided die
+    [switch]$SWLRed6,               #Use Star Wars Legion Red 6 Sided die
+    [switch]$SWLWhite8,             #Use Star Wars Legion White 8 Sided die
+    [switch]$SWLRed8,               #Use Star Wars Legion Red 8 Sided die
+    [switch]$SWLBlack8,             #Use Star Wars Legion Black 8 Sided die
     [switch]$MalifauxSuited,        #Use an exhausting deck of cards and malifaux joker logic
     [switch]$MalifauxUnsuited,      #Use an exhausting deck of cards, where the suits do not matter and malifaux joker logic
+    [switch]$d4,                    #Use a d4 (1,2,3,4)
+    [switch]$d6,                    #Use a d4 (1,2,3,4,5,6)
+    [switch]$d8,                    #Use a d4 (1,2,3,4,5,6,7,8)
+    [switch]$d10,                   #Use a d4 (1,2,3,4,5,6,7,8,9,10)
+    [switch]$d12,                   #Use a d4 (1,2,3,4,5,6,7,8,9,10,11,12)
+    [switch]$d20,                   #Use a d4 (1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20)
+    [switch]$dx,                    #Use a test die
+    [switch]$Coin,                  #Use a coin (Heads,Tails)
     #Options
     [string[]]$Faces,               #The faces present on a node (e.g. 1,2,3,4,5,6 for a d6)    
     [switch]$NoReplacement,         #True if faces are unique and cannot restult twice (e.g. removing the 3 of hearts from a deck after it is drawn)
@@ -90,14 +90,13 @@ param(
     [switch]$ShowActualFaces,       #Show the probability of a face occuring
     [switch]$ShowAllTables,         #Shows all tables
     #Debug
-    [int]$Test,                     #Test Data
+    [switch]$Test,                  #Test Data
     [switch]$ShowDebug              #if true debuging data will be displayed when the script executes.
 )
 
 
 #Arrays
 $aryFaces = @()               #This array holds the value on each face of each node
-$aryNodes = @()               #An array of node arrays.  Each element of this array is an array of the faced on that node.
 $aryUniqueFaces = @()         #This array is a list of the unique faces on each node
 $aryUniqueValues = @()        #This array is a list of the unique values on all the faces of all nodes. 
                               #  A muti-value faces count as having two unique values. E.g. Hit&Crit counts as Hit and Crit, NOT as Hit&Crit
@@ -151,102 +150,41 @@ if($Faces.count -ne 0) {
 #sytems are like macros.  They contain the options, like using numeric dice or malifax jokers
 #and the faces of the nodes.
 
-
-#XWing
-for($i = 1; $i -le $XWingAtt; $i++){
-    $aryNodes += ,@("Blank","Blank","Focus","Focus","Hit","Hit","Hit","Crit")
-    $ShowActualFaces = $true
-}
-for($i = 1; $i -le $XWingDef; $i++){
-    $aryNodes += ,@("Blank","Blank","Blank","Focus","Focus","Evade","Evade","Evade")
-    $ShowActualFaces = $true
-}
-
-
-#Star Wars Legacy
-for($i = 1; $i -le $SWLDefWhite; $i++){
-    $aryNodes += ,@("Blank","Blank","Blank","Blank","Surge","Block")
-    $ShowActualFaces = $true
-}
-for($i = 1; $i -le $SWLDefRed; $i++){
-    $aryNodes += ,@("Blank","Blank","Surge","Block","Block","Block")
-    $ShowActualFaces = $true
-}
-for($i = 1; $i -le $SWLAttWhite; $i++){
-    $aryNodes += ,@("Blank","Blank","Blank","Blank","Blank","Surge","Hit","Crit")
-    $ShowActualFaces = $true
-}
-for($i = 1; $i -le $SWLAttBlack; $i++){
-    $aryNodes += ,@("Blank","Blank","Blank","Surge","Hit","Hit","Hit","Crit")
-    $ShowActualFaces = $true
-}
-for($i = 1; $i -le $SWLAttRed; $i++){
-    $aryNodes += ,@("Blank","Surge","Hit","Hit","Hit","Hit","Hit","Crit")
-    $ShowActualFaces = $true
-}
-
-#Numeric Dice
-for($i = 1; $i -le $d4; $i++){
-    $aryNodes += ,@(1,2,3,4)
-    $ShowSums = $true
+if($XWingAtt) {
+    $systemName = "X-Wing Attack Dice"
+    $aryFaces = @("Blank","Blank","Focus","Focus","Hit","Hit","Hit","Crit")
     $ShowOrBetter = $true
-}
-for($i = 1; $i -le $d6; $i++){
-    $aryNodes += ,@(1,2,3,4,5,6)
-    $ShowSums = $true
+}elseif($XWingDef) {
+    $systemName = "X-Wing Defence Dice"
+    $aryFaces = @("Blank","Blank","Blank","Focus","Focus","Evade","Evade","Evade")
     $ShowOrBetter = $true
-}
-for($i = 1; $i -le $d8; $i++){
-    $aryNodes += ,@(1,2,3,4,5,6,7,8)
-    $ShowSums = $true
+}elseif($SWLWhite6) {
+    $systemName = "Star Wars Legion White d6"
+    $aryFaces = @("Blank","Blank","Blank","Blank","Surge","Block")
     $ShowOrBetter = $true
-}
-for($i = 1; $i -le $d10; $i++){
-    $aryNodes += ,@(1,2,3,4,5,6,7,8,9,10)
-    $ShowSums = $true
+}elseif($SWLRed6) {
+    $systemName = "Star Wars Legion Red d6"
+    $aryFaces = @("Blank","Blank","Surge","Block","Block","Block")
     $ShowOrBetter = $true
-}
-for($i = 1; $i -le $d12; $i++){
-    $aryNodes += ,@(1,2,3,4,5,6,7,8,9,10,11,12)
-    $ShowSums = $true
+}elseif($SWLWhite8) {
+    $systemName = "Star Wars Legion White d8"
+    $aryFaces = @("Blank","Blank","Blank","Blank","Blank","Surge","Hit","Crit")
     $ShowOrBetter = $true
-}
-for($i = 1; $i -le $d20; $i++){
-    $aryNodes += ,@(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20)
-    $ShowSums = $true
+}elseif($SWLBlack8) {
+    $systemName = "Star Wars Legion Black d8"
+    $aryFaces = @("Blank","Blank","Blank","Surge","Hit","Hit","Hit","Crit")
     $ShowOrBetter = $true
-}
-for($i = 1; $i -le $dx; $i++){
-    $aryNodes += ,@(1,3,5,7,9,10,11)
-    $ShowSums = $true
+}elseif($SWLRed8) {
+    $systemName = "Star Wars Legion Red d8"
+    $aryFaces = @("Blank","Surge","Hit","Hit","Hit","Hit","Hit","Crit")
     $ShowOrBetter = $true
-}
-
-
-#Coins
-for($i = 1; $i -le $Test; $i++){
-    $aryNodes += ,@("Heads","Tails")
-    $ShowExacts = $true
-}
-
-#Test 
-for($i = 1; $i -le $Test; $i++){
-    $aryNodes += ,@("Blank","Blank&Blank&Blank","Focus&Blank","Focus","Other","Hit","Hit","Crit")
-    $ShowActualFaces = $true
-}
-
-
-#Decks of Cards
-if($MalifauxUnsuited) {
+}elseif($MalifauxUnsuited) {
     $systemName = "Malifaux Unsuited Cards"
     $NoReplacement=$true
     $MalifauxJokers=$true
     $aryFaces = @("BJ","1","1","1","1","2","2","2","2","3","3","3","3","4","4","4","4",`
                   "5","5","5","5","6","6","6","6","7","7","7","7","8","8","8","8","9","9","9","9", `
                   "10","10","10","10","11","11","11","11","12","12","12","12","13","13","13","13","RJ")
-    $aryNodes = @()
-    $aryNodes += ,$aryFaces
-
     $ShowHighLow = $true
 }elseif($MalifauxSuited) {
     $systemName = "Malifaux Sited Cards"
@@ -258,21 +196,46 @@ if($MalifauxUnsuited) {
         $aryFaces += "WS"
     }
     $aryFaces += @("BJ","1","2","3","4","5","6","7","8","9","10","11","12","13","RJ")
-    $aryNodes = @()
-    $aryNodes += ,$aryFaces
     $ShowHighLow = $true
+}elseif($d4) {
+    $systemName = "d4"
+    $aryFaces = @(1,2,3,4)
+    $ShowSums=$true
+}elseif($d6) {
+    $systemName = "d6"
+    $aryFaces = @(1,2,3,4,5,6)
+    $ShowSums=$true
+    $ShowOrBetter = $true
+}elseif($d8) {
+    $systemName = "d8"
+    $aryFaces = @(1,2,3,4,5,6,7,8)
+    $ShowSums=$true
+}elseif($d10) {
+    $systemName = "d10"
+    $aryFaces = @(1,2,3,4,5,6,7,8,9,10)
+    $ShowSums=$true
+}elseif($d12) {
+    $systemName = "d12"
+    $aryFaces = @(1,2,3,4,5,6,7,8,9,10,11,12)
+    $ShowSums=$true
+}elseif($d20) {
+    $systemName = "d20"
+    $aryFaces = @(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20)
+    $ShowSums=$true
+}elseif($dx) {
+    $systemName = "dx"
+    $aryFaces = @(1,3,5,7,9,10,11)
+    $ShowSums=$true
+}elseif($Test) {
+    $systemName = "Test Die"
+    $aryFaces = @("Blank","Blank&Blank&Blank","Focus&Blank","Focus","Other","Hit","Hit","Crit")
+    $ShowActualFaces = $true
+}else{  
+    #default to coins
+    $systemName = "Coin"
+    $aryFaces = @("Heads","Tails")
+    $ShowExacts = $true
 }
-
-
-
-
-
-foreach($Node in $aryNodes) {
-    write-host $node -ForegroundColor blue
-}
-Write-Host "Node Count: $($aryNodes.Count)" -ForegroundColor Blue
-
-break
 
 
 $ShowExacts = $true
