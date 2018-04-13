@@ -76,8 +76,8 @@ param(
     [int]$d20,                   #Use a d4 (1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20)
     [int]$dx,                    #Use a test die
     [int]$Coin,                  #Use a coin (Heads,Tails)
-    [switch]$MalifauxSuited,        #Use an exhausting deck of cards and malifaux joker logic
-    [switch]$MalifauxUnsuited,      #Use an exhausting deck of cards, where the suits do not matter and malifaux joker logic
+    [int]$MalifauxSuited,        #Use an exhausting deck of cards and malifaux joker logic
+    [int]$MalifauxUnsuited,      #Use an exhausting deck of cards, where the suits do not matter and malifaux joker logic
     #Options
     [string[]]$Faces,               #The faces present on a node (e.g. 1,2,3,4,5,6 for a d6)    
     [switch]$NoReplacement,         #True if faces are unique and cannot restult twice (e.g. removing the 3 of hearts from a deck after it is drawn)
@@ -135,7 +135,7 @@ $aryResult = @()              #This array is the current result
 $resultID = -1                  #The current result
 $showProcessing = $false        #True if processing info should be displayed to the screen
 $sumsWidth = 1                  #default value will be reset if numeric dice are used
-$maxValueCount = 0              #The highest possible tally for a value in a single result
+$maxValueOccCount = 0           #The greatest number of times a value can occur (e.g. with nodes a,b,c and a,b&b,c it would be 3 since b can occure three times)
 $systemNote = ""                #Note do display with secenario summary
 $nodeDelimiter = "&"            #Delimits values on a a multi-value face (e.g. Hit&Hit for a face with two Hit restults)
 
@@ -224,20 +224,20 @@ for($i = 1; $i -le $dx; $i++){
 
 
 #Coins
-for($i = 1; $i -le $Test; $i++){
+for($i = 1; $i -le $Coin; $i++){
     $aryNodes += ,@("Heads","Tails")
     $ShowExacts = $true
 }
 
 #Test 
 for($i = 1; $i -le $Test; $i++){
-    $aryNodes += ,@("Blank","Blank&Blank&Blank","Focus&Blank","Focus","Other","Hit","Hit","Crit")
+    $aryNodes += ,@("Piggy","Blank","Blank&Blank&Blank","Focus&Blank","Focus","Other","Hit","Hit","Crit")
     $ShowActualFaces = $true
 }
 
 
 #Decks of Cards
-if($MalifauxUnsuited) {
+if($MalifauxUnsuited -gt 0) {
     $systemName = "Malifaux Unsuited Cards"
     $NoReplacement=$true
     $MalifauxJokers=$true
@@ -248,7 +248,7 @@ if($MalifauxUnsuited) {
     $aryNodes += ,$aryFaces
 
     $ShowHighLow = $true
-}elseif($MalifauxSuited) {
+}elseif($MalifauxSuited -gt 0) {
     $systemName = "Malifaux Sited Cards"
     $systemNote = "WS (Wrong Suit) is any card that is not of the desired suit."
     $NoReplacement=$true
@@ -272,7 +272,6 @@ foreach($Node in $aryNodes) {
 }
 Write-Host "Node Count: $($aryNodes.Count)" -ForegroundColor Blue
 
-break
 
 
 $ShowExacts = $true
@@ -304,39 +303,6 @@ function Create-RestultArray {
 }
 
 
-##################################################################################################
-# Determing the maximum number of times a value can occur in an instance
-# If a scenario rolls 3 dice that have 'Blank' and "Hit&Hit" on the faces then
-# thre can be up to 3 occurances of Blank and 6 occurances of Hit.
-function Determine-MaxValueOccurnaces {
-
-    #most times any value occurs on a single face of any node
-    $theMost = 0
-
-    #step through each face of each node
-    foreach($face in $script:aryFaces) {
-        #split the face into individual values
-        if(isNumeric $face) {
-            $faceValues = $face
-        }else{
-            $faceValues = $face.split("{$nodeDelimiter}")
-        }
-        #count how many times each value occurs on the face
-        foreach($faceValue in $faceValues) {
-            $matcheList = [regex]::Matches($face,$faceValue)
-            if($matcheList.count -gt $theMost) {
-                $theMost = $matcheList.count
-            }
-        }
-    }
-    #write the maximum number of times a value can occure to a script scoped variable
-    $script:maxValueCount = $theMost * $script:NodeCount
-
-}
-
-
-
-
 
 
 
@@ -345,30 +311,34 @@ function Determine-MaxValueOccurnaces {
 ## This table lists each face once regardless of how many times it appears on the nodes.
 ## For example if the faces are: Hit, Hit, Hit&Hit, Hit&Hit, and Crit this array will contain Hit, Hit&Hit and Crit. 
 function Create-UniqueFacesTable {
+
     
     if($showProcessing) {write-host "  Create-UniqueFacesTable" -ForegroundColor green }
 
-    #step through each face in the faces array
-    foreach($face in $script:aryFaces) {
+    #step through each node then thorugh each face on that node
+    foreach($node in $aryNodes) {
+        foreach($face in $node) {
 
-        #step through each face in the unique faces array looking for a match
-        $match = $false
-        foreach($uniqueFace in $script:aryUniqueFaces) {
-            if($face -eq $uniqueFace) {
-                $match = $true
+            #step through each face in the unique faces array looking for a match
+            $match = $false
+            foreach($uniqueFace in $script:aryUniqueFaces) {
+                if($face -eq $uniqueFace) {
+                    $match = $true
+                }
             }
-        }
-        #if there is no match add it to the unique faces array
-        if(!$match){
-            $script:aryUniqueFaces += $face
+            #if there is no match add it to the unique faces array
+            if(!$match){
+                $script:aryUniqueFaces += $face
+            }
         }
     }
 
+
     #for debugging write out all the values in the unique value array
-    if($false) {
-        write-host "`nUnique Faces Array" -ForegroundColor Yellow
+    if($showProcessing) {
+        write-host "    Unique Faces Array" -ForegroundColor Yellow
         foreach ($face in $script:aryUniqueFaces) {
-            write-host $face 
+            write-host "      $face "
         }
     }
 }
@@ -379,15 +349,14 @@ function Create-UniqueFacesTable {
 ## This table lists each value once regardless of how many times it appears on nodes and faces.
 ## For example if the faces are: Hit, Hit&Hit, Hit&Hit&Hit, Hit&Crit and Crit this array will contain Hit and Crit. 
 function Create-UniqueValuesTable {
-    param (
-        $aryNode              #the node to examine
-
-    )
     
-    if($showProcessing) {write-host "  Create-UniqueValuesTable" -ForegroundColor green }
+
+    if($showProcessing) {write-host "  `nCreate-UniqueValuesTable" -ForegroundColor green }
 
     #step through each face in the faces array
-    foreach($face in $aryNode) {
+    if($showProcessing) {Write-Host "  Unique Faces to Process" -ForegroundColor Yellow}
+    foreach($face in $script:aryUniqueFaces) {
+        if($showProcessing) {Write-Host "    $face" }
 
         #break the face into individual values and step through each value
         if(isNumeric $face) {
@@ -412,15 +381,61 @@ function Create-UniqueValuesTable {
     }
 
     #for debugging write out all the values in the unique value array
-    if($false) {
-        write-host "`nUnique Values Array" -ForegroundColor Yellow
+    if($showProcessing) {
+        write-host "`n  Unique Values Array" -ForegroundColor Yellow
         foreach ($value in $script:aryUniqueValues) {
-            write-host $value 
+            write-host "    $value "
         }
     }
 }
 
 
+
+
+
+##################################################################################################
+#Calculates the maximum number of times any one result can appear.
+#E.g. if the nodes are A,B,C and AA,A,A then A can appear up to 3 times, B and C can appear up to
+#1 time each, so would return 3.
+
+function Caclulate-HighestPossibleOccurance {
+
+    #$showProcessing = $true
+    if($showProcessing) {write-host "  `nCaclulate-HighestPossibleOccurance" -ForegroundColor green }
+    $highestOccCount = 0
+
+    #step through each unique value
+    if($showProcessing) {write-host "    Unique Values to process" -ForegroundColor green }
+    foreach ($uniqueValue in $script:aryUniqueValues) {
+        if($showProcessing) {write-host "      Matching Against: $uniqueValue " -ForegroundColor blue}
+        $occCount = 0
+
+
+
+        #Count the values on each face of each node that match the current unique value
+        foreach($node in $script:aryNodes) {
+            foreach($face in $node) {
+                $values = $face.split("{$nodeDelimiter}")
+                foreach($value in $values){
+                    if($value -eq $uniqueValue){
+                        $occCount ++
+                        if($showProcessing) {write-host "        $uniqueValue  = $value  Count = $occCount   [Face: $face]    Node: $node" -ForegroundColor green}
+                    } else {
+                        if($showProcessing) {write-host "        $uniqueValue != $value  Count = $occCount   [Face: $face]    Node: $node" -ForegroundColor Red}
+
+                    }
+                }
+            }
+        }
+        #if the occurnace count of this value is greater than any previous then upate to this occ count
+        if($occCount -gt $highestOccCount) {
+            $highestOccCount = $occCount
+        }
+        if($showProcessing) {write-host "          $uniqueValue count: $occCount / highest count: $highestOccCount" }
+
+    }#end uniqueValue foreach
+    $script:maxValueOccCount = $highestOccCount
+}
 
 
 
@@ -438,7 +453,7 @@ function Create-OccuranceSummaryTables {
     $rowCount = $script:aryUniqueValues.count
 
     #Create a column for the value name, and for each value from 0 to the highest possible occurance of any value.
-    $colCount = $script:maxValueCount + 2
+    $colCount = $script:maxValueOccCount + 2
 
     #Create the Brute Force arrays.
     $script:aryBFExactlyXTable = New-Object 'object[,]' $rowCount,$colCount
@@ -668,6 +683,13 @@ function Calculate-ExactlyX {
 # Brute Force Processing functions
 ##################################################################################################
 
+
+
+
+
+
+
+
 ##################################################################################################
 #Steps through each face of a node
 function Generate-BruteForceResult {
@@ -785,7 +807,7 @@ function Analyze-ResultForMathValues {
 # E.g. If 'Hit', 'Hit&Hit', 'Crit' and 'Crit' appeared in the restult this function would write
 # 1 Hit, 1 'Hit&Hit' and 2 'Crit' results to the Actual Faces table.
 #vetted 1.0
-#xxx
+
 function Analyze-ResultActualFaces {
 
     if($showProcessing) {write-host "  Analyze-ResultActualFaces" -ForegroundColor green }
@@ -1062,7 +1084,8 @@ function Tally-ExactXOrMoreTable{
 ##################################################################################################
 #Summary arrays keep track of how many times an outcome occurs.  This functions adds the proper
 #value to the proper summary array.
-#xxx
+
+
 function Incriment-SummaryArray {
     param(
         [string]$Face,           #the name of the face to incriment
@@ -1278,7 +1301,7 @@ function Display-OccurnaceSummaryTable {
     if(!$ActualFaces -and !$ExactlyX -and !$ExactXOrMore -and !$XOrBetter) {return}
 
     #$rowCount = $($script:aryUniqueValues).count
-    $colCount = $script:maxValueCount +2
+    $colCount = $script:maxValueOccCount +2
 
     #generate output format
     #initialize the format string
@@ -2089,10 +2112,15 @@ if($showProcessing) {write-host "" -ForegroundColor green }
 if($showProcessing) {write-host "Setup Started" -ForegroundColor green }
 
 $startTime = Get-Date
-Create-RestultArray
+
+
 Create-UniqueFacesTable
-Create-UniqueValuesTable -aryNode $script:aryFaces
-Determine-MaxValueOccurnaces 
+Create-UniqueValuesTable 
+Caclulate-HighestPossibleOccurance
+
+break
+
+Create-RestultArray
 Create-OccuranceSummaryTables
 Create-AcutalFacesSummaryTables
 Create-HighLowSummaryTable
