@@ -415,7 +415,13 @@ function Caclulate-HighestPossibleOccurance {
         #Count the values on each face of each node that match the current unique value
         foreach($node in $script:aryNodes) {
             foreach($face in $node) {
-                $values = $face.split("{$nodeDelimiter}")
+
+                #break the face into individual values and step through each value
+                if(isNumeric $face) {
+                    $values = $face
+                }else{
+                    $values = $face.split("{$nodeDelimiter}")
+                }
                 foreach($value in $values){
                     if($value -eq $uniqueValue){
                         $occCount ++
@@ -2118,15 +2124,10 @@ Create-UniqueFacesTable
 Create-UniqueValuesTable 
 Caclulate-HighestPossibleOccurance
 
-break
-
 Create-RestultArray
 Create-OccuranceSummaryTables
 Create-AcutalFacesSummaryTables
 Create-HighLowSummaryTable
-
-
-
 
 if($ShowSums -or $ShowAllTables) {
     Confirm-FacesAreNumeric
@@ -2136,6 +2137,7 @@ if($ShowSums) {
 }
 
 
+break
 
 
 ######################################
