@@ -59,8 +59,8 @@
 
 
 param(
-    [int]$NodeCount=2,              #the number of elements in the randomization (e.g. 3 cards, 2 dice, etc.)
-    #Systems
+    [int]$NodeCount=0,              #the number of elements in the randomization (e.g. 3 cards, 2 dice, etc.)
+    #Nodes
     [int]$XWingAtt,              #Use XWing attack dice are being used 
     [int]$XWingDef,              #Use XWing defence dice are being used 
     [int]$SWLDefWhite,             #Use Star Wars Legion White 6 Sided die
@@ -79,9 +79,10 @@ param(
     [int]$MalifauxSuited,        #Use an exhausting deck of cards and malifaux joker logic
     [int]$MalifauxUnsuited,      #Use an exhausting deck of cards, where the suits do not matter and malifaux joker logic
     #Options
-    [string[]]$Faces,               #The faces present on a node (e.g. 1,2,3,4,5,6 for a d6)    
-    [switch]$NoReplacement,         #True if faces are unique and cannot restult twice (e.g. removing the 3 of hearts from a deck after it is drawn)
-    
+    [switch]$DicePool,           #True if each node has exactly one result and is unchangable (e.g. like rolling a group of dice)
+    [switch]$DrawPool,           #True if each 'node' forms a single pool the yeilds one result (e.g. like putting differcont collored rocks in a bag)
+    [switch]$NoReplacement,      #True if faces are unique and cannot restult twice (e.g. removing the 3 of hearts from a deck after it is drawn)
+                                 #only valid with DrawPools
     [switch]$MalifauxJokers,        #True if Malfiaux joker logic should be applied
     [switch]$ShowSums,              #Show the probability of sums occuring for numeric nodes (e.g. rolling 9 an 2d6)
     [switch]$ShowExacts,            #Show the probability of an exact value occuring (e.g. getting one 5 on 2d6)
@@ -133,23 +134,23 @@ $aryResult = @()              #This array is the current result
 
 #Variables
 $resultID = -1                  #The current result
-$showProcessing = $false        #True if processing info should be displayed to the screen
+$restultSizeToReplaceNodCnt = 0                #How many faces will be in each result
 $sumsWidth = 1                  #default value will be reset if numeric dice are used
 $maxValueOccCount = 0           #The greatest number of times a value can occur (e.g. with nodes a,b,c and a,b&b,c it would be 3 since b can occure three times)
 $systemNote = ""                #Note do display with secenario summary
 $nodeDelimiter = "&"            #Delimits values on a a multi-value face (e.g. Hit&Hit for a face with two Hit restults)
-
-
-
-#input the faces used
-if($Faces.count -ne 0) {
-    $aryFaces = $Faces
-}
+$showProcessing = $false        #True if processing info should be displayed to the screen
+$projectedResultCount = 0             #Estimate of how many possible results there will be
 
 
 #Process System Switches
 #sytems are like macros.  They contain the options, like using numeric dice or malifax jokers
 #and the faces of the nodes.
+
+
+#default to using dice pool mechanics
+$DicePool = $true
+
 
 
 #XWing
@@ -246,7 +247,8 @@ if($MalifauxUnsuited -gt 0) {
                   "10","10","10","10","11","11","11","11","12","12","12","12","13","13","13","13","RJ")
     $aryNodes = @()
     $aryNodes += ,$aryFaces
-
+    $DicePool = $false
+    $DrawPool = $true
     $ShowHighLow = $true
 }elseif($MalifauxSuited -gt 0) {
     $systemName = "Malifaux Sited Cards"
@@ -260,6 +262,8 @@ if($MalifauxUnsuited -gt 0) {
     $aryFaces += @("BJ","1","2","3","4","5","6","7","8","9","10","11","12","13","RJ")
     $aryNodes = @()
     $aryNodes += ,$aryFaces
+    $DicePool = $false
+    $DrawPool = $true
     $ShowHighLow = $true
 }
 
@@ -278,11 +282,6 @@ $ShowExacts = $true
 $ShowActualFaces = $true
 
 
-#estimate the number of results for the status bar
-#$resultCount = 0
-$estResultCount = [math]::pow($aryFaces.count,$NodeCount)
-
-
 
 
 
@@ -297,7 +296,7 @@ function Create-RestultArray {
     
     if($showProcessing) {write-host "  Create-RestultArray" -ForegroundColor green }
 
-    for($i = 1; $i -le $NodeCount; $i++) {
+    for($i = 1; $i -le $script:restultSizeToReplaceNodCnt; $i++) {
         $script:aryResult += "empty"
     }
 }
@@ -391,6 +390,40 @@ function Create-UniqueValuesTable {
 
 
 
+##################################################################################################
+#calculates how many faces will be in each result.
+#E.g. if five dice are rolled there will be five faces in each result, if four cards are drawn there will be four faces in each result
+#xxxx Need to move to a script varaible insteast of $nodecount
+function Caclulate-ResultSize {
+
+    if($DicePool){
+        $script:restultSizeToReplaceNodCnt = $script:aryNodes.Count
+    }elseif($DrawPool){
+        $script:restultSizeToReplaceNodCnt = 0
+    }else{
+        $script:restultSizeToReplaceNodCnt = 0
+    }
+
+    write-host $script:restultSizeToReplaceNodCnt -ForegroundColor Cyan
+
+}
+
+##################################################################################################
+# Calcluate how many 
+function Caclulate-ProjectedResultCount {
+
+    if($DicePool) {
+        $script:projectedResultCount = 1
+        foreach($node in $script:aryNodes){
+            $faceCount = $node.Count
+            $script:projectedResultCount = $script:projectedResultCount * $faceCount
+        }
+    }elseif($DrawPool){
+        $script:projectedResultCount = 0
+    }
+
+
+}
 
 
 ##################################################################################################
@@ -693,63 +726,58 @@ function Calculate-ExactlyX {
 
 
 
+##################################################################################################
+#Generate the rusults to analyze
+#xxx
+function Generate-BruteForceResult {
 
+    #if there is no replacment then a single node is used and 
+    if($DicePool) {
+
+        Generate-BruteForceResultForDicePool
+
+    }else{
+
+
+    }
+
+
+
+
+
+}
 
 
 ##################################################################################################
-#Steps through each face of a node
-function Generate-BruteForceResult {
+#Steps through the faces of each node generating every possible combination.  Then that
+#combination is passed onto be analyzed.
+#E.g. If the nodes are A,B,C and 1,2,3 Then A1, A2, A3, B1, B2, B3, C1, C2, C3 will be generated and
+#analyzed
+function Generate-BruteForceResultForDicePool {
     param(
-        [int]$nodeNum = 1,         #the current node
-        [Parameter(Mandatory=$true)]
-        [string[]]$DrawPool
+        [int]$nodeNum = 0         #the current node
     )
 
-    foreach($face in $DrawPool ) {
-        $script:aryResult[$nodeNum -1] = $face
-        if($NodeCount -gt $nodeNum) {
-            $nextNode = $nodeNum +1
+    $showProcessing = $true
+    if($showProcessing) {write-host "  Generate-BruteForceResultForDicePool" -ForegroundColor green }
 
-            #if exhaust faces is set then remove the current face from the pool for later draws
-            if($NoReplacement) {
-                $nextDrawPool = Create-DrawPool -PoolIn $DrawPool -RemoveFace  $face
-            } else {
-                $nextDrawPool = Create-DrawPool -PoolIn $DrawPool
-            }
-            Generate-BruteForceResult -nodeNum $nextNode -DrawPool $nextDrawPool
+    $Node = $script:aryNodes[$nodeNum]
+    foreach($face in $Node ) {
+        $script:aryResult[$nodeNum] = $face
+
+        if($nodeNum -lt $restultSizeToReplaceNodCnt -1) {
+            $nextNode = $nodeNum +1
+            Generate-BruteForceResultForDicePool $nextNode
         } else {
             $script:resultID = $script:resultID +1
-            Write-Progress -Activity "Generating Results" -status "Result $script:resultID of $script:estResultCount" -percentComplete ($script:resultID / $script:estResultCount * 100)
+            if($showProcessing) {write-host "    Result: $script:aryResult   Progress: $script:resultID / $script:projectedResultCount" -ForegroundColor yellow }
+            Write-Progress -Activity "Generating Results" -status "Result $script:resultID of $script:projectedResultCount" -percentComplete ($script:resultID / $script:projectedResultCount * 100)
             Analyze-Result
         }
     }
 }
 
 
-##################################################################################################
-## Creates a new draw pool from an existing pool.
-## RemoveFace will remove ONE instnace of face from the pool.  So if the poll is "1,1,2,2,3,3,4,4"
-## and Remove Face = "2" the new pool will be "1,1,2,3,3,4,4" it will NOT be "1,1,3,3,4,4"
-function Create-DrawPool {
-    param(
-        [Parameter(Mandatory=$true)]
-        [string[]]$PoolIn,
-        [string]$RemoveFace = ""
-    )
-
-    #copy the existing array
-    $aryPoolOut = @()
-    foreach($face in $PoolIn) {
-        #if Remove face is found don't add it, then change remove face to empty so no further matches are found
-        if($face -ne $RemoveFace) {
-            $aryPoolOut += $face
-        } else {
-            $RemoveFace = ""
-        }
-    }
-
-    return $aryPoolOut
-}
 
 ##################################################################################################
 #Looks at the current result and writes data to the summary tables
@@ -763,7 +791,7 @@ function Analyze-Result {
 
 
     if($ShowAllTables -or $ShowExacts)       {Analyze-ResultForExactlyX}
-    if($ShowAllTables -or $ShowActualFaces)  {Analyze-ResultActualFaces}
+    #if($ShowAllTables -or $ShowActualFaces)  {Analyze-ResultActualFaces}
     #if($ShowAllTables -or $ShowOrBetter)  {Analyze-ResultForXOrBetter}
     #if($ShowAllTables -or $ShowHighLow)   {Analyze-ResultForHighAndLowFace}
     #if($ShowSums)      {Analyze-ResultForMathValues}
@@ -2123,6 +2151,8 @@ $startTime = Get-Date
 Create-UniqueFacesTable
 Create-UniqueValuesTable 
 Caclulate-HighestPossibleOccurance
+Caclulate-ResultSize
+Caclulate-ProjectedResultCount
 
 Create-RestultArray
 Create-OccuranceSummaryTables
@@ -2137,21 +2167,22 @@ if($ShowSums) {
 }
 
 
-break
 
 
 ######################################
 # Processing
 if($showProcessing) {write-host "" -ForegroundColor green }
 if($showProcessing) {write-host "Processing Started" -ForegroundColor green }
-$aryDrawPool = Create-DrawPool -PoolIn $aryFaces
 
 
-Generate-BruteForceResult -DrawPool $aryDrawPool
+Generate-BruteForceResult
 
 
-Calculate-TheoreticalResults
-Tally-SummaryTables
+
+#xxx
+#Calculate-TheoreticalResults
+#xxx
+#Tally-SummaryTables
 
 
 ######################################
