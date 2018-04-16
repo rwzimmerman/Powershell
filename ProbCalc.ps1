@@ -59,7 +59,6 @@
 
 
 param(
-    [int]$NodeCount=0,              #the number of elements in the randomization (e.g. 3 cards, 2 dice, etc.)
     #Nodes
     [int]$XWingAtt,              #Use XWing attack dice are being used 
     [int]$XWingDef,              #Use XWing defence dice are being used 
@@ -135,6 +134,7 @@ $aryResult = @()              #This array is the current result
 #Variables
 $resultID = -1                  #The current result
 $restultSizeToReplaceNodCnt = 0                #How many faces will be in each result
+$nodeCount = 0
 $sumsWidth = 1                  #default value will be reset if numeric dice are used
 $maxValueOccCount = 0           #The greatest number of times a value can occur (e.g. with nodes a,b,c and a,b&b,c it would be 3 since b can occure three times)
 $systemNote = ""                #Note do display with secenario summary
@@ -296,7 +296,7 @@ function Create-RestultArray {
     
     if($showProcessing) {write-host "  Create-RestultArray" -ForegroundColor green }
 
-    for($i = 1; $i -le $script:restultSizeToReplaceNodCnt; $i++) {
+    for($i = 1; $i -le $script:nodeCount; $i++) {
         $script:aryResult += "empty"
     }
 }
@@ -393,18 +393,18 @@ function Create-UniqueValuesTable {
 ##################################################################################################
 #calculates how many faces will be in each result.
 #E.g. if five dice are rolled there will be five faces in each result, if four cards are drawn there will be four faces in each result
-#xxxx Need to move to a script varaible insteast of $nodecount
-function Caclulate-ResultSize {
+#xxxx Need to move to a script varaible insteast of $script:nodeCount
+function Caclulate-NodeCount {
 
     if($DicePool){
-        $script:restultSizeToReplaceNodCnt = $script:aryNodes.Count
+        $script:nodeCount = $script:aryNodes.Count
     }elseif($DrawPool){
-        $script:restultSizeToReplaceNodCnt = 0
+        $script:nodeCount = 0
     }else{
-        $script:restultSizeToReplaceNodCnt = 0
+        $script:nodeCount = 0
     }
 
-    write-host $script:restultSizeToReplaceNodCnt -ForegroundColor Cyan
+    write-host "NodeCount: $script:nodeCount" -ForegroundColor Cyan
 
 }
 
@@ -435,7 +435,73 @@ function Caclulate-HighestPossibleOccurance {
 
     #$showProcessing = $true
     if($showProcessing) {write-host "  `nCaclulate-HighestPossibleOccurance" -ForegroundColor green }
-    $highestOccCount = 0
+
+    #the highest number of occurnaces for any value
+    $highestTotalOccCount = 0
+
+    #step through each unique value
+    if($showProcessing) {write-host "    Unique Values to process" -ForegroundColor green }
+    foreach ($uniqueValue in $script:aryUniqueValues) {
+        if($showProcessing) {write-host "      Matching Against: $uniqueValue " -ForegroundColor blue}
+        $totalOccCount = 0
+
+        #Step through each node
+        foreach($node in $script:aryNodes) {
+            $highestOccCount = 0
+            foreach($face in $node) {
+                $OccCount = 0
+
+                #break the face into individual values and step through each value
+                if(isNumeric $face) {
+                    $values = $face
+                }else{
+                    $values = $face.split("{$nodeDelimiter}")
+                }
+                #Step through each value on the face.  If it matches incriment the value count.
+                foreach($value in $values){
+                    if($value -eq $uniqueValue){
+                        $OccCount = $OccCount +1
+                        if($showProcessing) {write-host "        $uniqueValue  = $value  Occ Count = $OccCount   [Face: $face]    Node: $node" -ForegroundColor green}
+                    } else {
+                        if($showProcessing) {write-host "        $uniqueValue != $value  Occ Count = $OccCount   [Face: $face]    Node: $node" -ForegroundColor Red}
+                    }
+                }
+                #if this is the face with the greatest count for the current value then track it.
+                if($OccCount -gt $highestOccCount) {
+                    $highestOccCount = $OccCount
+                }
+            }#end Face foreach
+
+            #Add the highest possible occ count for this face to the highest occ count for this node.
+            $totalOccCount = $totalOccCount + $highestOccCount 
+            if($showProcessing) {write-host "        Most $uniqueValue/Face on this node = $highestOccCount  " -ForegroundColor yellow}
+
+            #if this value has more possible occurnaces than any other then use its value
+            if($totalOccCount -gt $highestTotalOccCount){
+                $highestTotalOccCount = $totalOccCount
+            }
+        } #end node Foreach
+
+
+        if($showProcessing) {write-host "          Highest Possible Number of $uniqueValue = $totalOccCount" }
+
+    }#end uniqueValue foreach
+    $script:maxValueOccCount = $highestTotalOccCount
+    if($showProcessing) {write-host "            Highest Possible Number of any value = $highestTotalOccCount" }
+}
+
+
+
+##################################################################################################
+#Calculates the maximum number of times any one result can appear.
+#E.g. if the nodes are A,B,C and AA,A,A then A can appear up to 3 times, B and C can appear up to
+#1 time each, so would return 3.
+
+function OLDCaclulate-HighestPossibleOccurance {
+
+    $showProcessing = $true
+    if($showProcessing) {write-host "  `nCaclulate-HighestPossibleOccurance" -ForegroundColor green }
+    $totalOccCount = 0
 
     #step through each unique value
     if($showProcessing) {write-host "    Unique Values to process" -ForegroundColor green }
@@ -443,10 +509,9 @@ function Caclulate-HighestPossibleOccurance {
         if($showProcessing) {write-host "      Matching Against: $uniqueValue " -ForegroundColor blue}
         $occCount = 0
 
-
-
-        #Count the values on each face of each node that match the current unique value
+        #Step through each node
         foreach($node in $script:aryNodes) {
+            $highestOccCountPerFace = 0
             foreach($face in $node) {
 
                 #break the face into individual values and step through each value
@@ -458,22 +523,29 @@ function Caclulate-HighestPossibleOccurance {
                 foreach($value in $values){
                     if($value -eq $uniqueValue){
                         $occCount ++
-                        if($showProcessing) {write-host "        $uniqueValue  = $value  Count = $occCount   [Face: $face]    Node: $node" -ForegroundColor green}
+                        if($showProcessing) {write-host "        $uniqueValue  = $value  Occ Count = $occCount   [Face: $face]    Node: $node" -ForegroundColor green}
                     } else {
-                        if($showProcessing) {write-host "        $uniqueValue != $value  Count = $occCount   [Face: $face]    Node: $node" -ForegroundColor Red}
+                        if($showProcessing) {write-host "        $uniqueValue != $value  Occ Count = $occCount   [Face: $face]    Node: $node" -ForegroundColor Red}
 
                     }
+
+                    if($occCount -gt $highestOccCountPerFace) {
+                        $highestOccCountPerFace =  $occCount
+                    }
+    
                 }
-            }
-        }
-        #if the occurnace count of this value is greater than any previous then upate to this occ count
-        if($occCount -gt $highestOccCount) {
-            $highestOccCount = $occCount
-        }
-        if($showProcessing) {write-host "          $uniqueValue count: $occCount / highest count: $highestOccCount" }
+
+
+
+            }#end Face foreach
+            #Add the occ count for the face on this node with the most occurnaces
+            $totalOccCount = $occCount
+            if($showProcessing) {write-host "          $uniqueValue count: $occCount / highest count: $totalOccCount" }
+
+        } #end node Foreach
 
     }#end uniqueValue foreach
-    $script:maxValueOccCount = $highestOccCount
+    $script:maxValueOccCount = $totalOccCount
 }
 
 
@@ -613,8 +685,8 @@ function Create-MathSummaryTable {
     }
 
     #found the highest and lowest possible sums
-    [int]$highestSum = $NodeCount * $highestFace
-    [int]$script:lowestTotal = $NodeCount * $LowestFace
+    [int]$highestSum = $script:nodeCount * $highestFace
+    [int]$script:lowestTotal = $script:nodeCount * $LowestFace
     
     #the columns
     $script:sumsColName = 0
@@ -686,7 +758,7 @@ function Calculate-ExactlyX {
         #where n is 0 to the number of possible nodes.
         #e.g. if there are three 6-sided dice loop thorough calculating the odds of rolling
         # zero 6's, one 6, two 6's, and three 6's.
-        for($occCount = 0; $occCount -le $NodeCount; $occCount++) {
+        for($occCount = 0; $occCount -le $script:nodeCount; $occCount++) {
             #Do a combination calcuation for distribution of times the node occures exaclty k times
             $successChance = $matchingFaceCount / $totalFaceCount
 
@@ -698,14 +770,14 @@ function Calculate-ExactlyX {
                     $ExacltyXChance = 0
                 } else {
                     #use Hypergeometric Distribution
-                    $ExacltyXChance = Calculate-HypergeometricDistribution -PopulationSize $totalFaceCount -SuccessStates $matchingFaceCount -Draws $NodeCount -ObservedSuccesses $occCount
+                    $ExacltyXChance = Calculate-HypergeometricDistribution -PopulationSize $totalFaceCount -SuccessStates $matchingFaceCount -Draws $script:nodeCount -ObservedSuccesses $occCount
                 }
             } else {
                 #if there IS replacment (e.g. dice  use Binomial Probabiliy Mass to calculate chance)
-                $ExacltyXChance = Calculate-ProbabiliyMass -n $NodeCount -k $occCount -p $successChance
+                $ExacltyXChance = Calculate-ProbabiliyMass -n $script:nodeCount -k $occCount -p $successChance
             }
 
-            #write-host "$face - PopSize: $totalFaceCount / SucStates: $matchingFaceCount / Draws: $nodecount / ObsSuc: $occCount / Chance: $ExacltyXChance" -ForegroundColor Yellow
+            #write-host "$face - PopSize: $totalFaceCount / SucStates: $matchingFaceCount / Draws: $script:nodeCount / ObsSuc: $occCount / Chance: $ExacltyXChance" -ForegroundColor Yellow
 
             #write the chance to the summary table
             $row = Convert-FaceToUniqueValuesRow -value $face
@@ -758,14 +830,13 @@ function Generate-BruteForceResultForDicePool {
         [int]$nodeNum = 0         #the current node
     )
 
-    $showProcessing = $true
     if($showProcessing) {write-host "  Generate-BruteForceResultForDicePool" -ForegroundColor green }
 
     $Node = $script:aryNodes[$nodeNum]
     foreach($face in $Node ) {
         $script:aryResult[$nodeNum] = $face
 
-        if($nodeNum -lt $restultSizeToReplaceNodCnt -1) {
+        if($nodeNum -lt $script:nodeCount -1) {
             $nextNode = $nodeNum +1
             Generate-BruteForceResultForDicePool $nextNode
         } else {
@@ -1014,7 +1085,7 @@ function Tally-OrBetterTable {
     if($showProcessing) {write-host "  Tally-OrBetterTable" -ForegroundColor green }
 
     #step through each colum
-    for($col = 1; $col -le $NodeCount; $col++) {
+    for($col = 1; $col -le $script:nodeCount; $col++) {
         #Step through each row in the column from lowest value to highest
         for($row = 0; $row -le $script:aryUniqueValues.count; $row++) {
             #add the values of all the higher value results to this result
@@ -1098,11 +1169,11 @@ function Tally-ExactXOrMoreTable{
     #step through each row
     for($row=0; $row -lt $($script:aryUniqueValues.count); $row++) {
         #step through each node count in that row
-        for($col=1; $col -le $NodeCount+1; $col++) {
+        for($col=1; $col -le $script:nodeCount+1; $col++) {
             [int]$BFSum = 0
             [single]$CalcSum = 0
             #total the node value for the current column and the columns to the right of that cloumn
-            for($shortCol=$col; $shortCol -le $NodeCount+1; $shortCol++) {
+            for($shortCol=$col; $shortCol -le $script:nodeCount+1; $shortCol++) {
                 $BFSum = $BFSum + $aryBFExactlyXTable[$row,$shortCol]
                 $CalcSum = $CalcSum + $aryCalcExactlyXTable[$row,$shortCol]
             }
@@ -1548,7 +1619,7 @@ function Display-ScenarioData {
         Write-Host ($outFormat -f "","Note:",$systemNote)  
     }
 
-    Write-Host ($outFormat -f "","Nodes:",$NodeCount)  
+    Write-Host ($outFormat -f "","Nodes:",$script:nodeCount)  
 
     $faceList = ""
     foreach($face in $script:aryFaces) {
@@ -1557,6 +1628,7 @@ function Display-ScenarioData {
     Write-Host ($outFormat -f "","Faces:",$faceList)  
 
     Write-Host ($outFormat -f "","Face Count:",$($($script:aryFaces).count)) 
+    Write-Host ($outFormat -f "","Max Occ Count:",$script:maxValueOccCount)
     Write-Host ($outFormat -f "","Result Count:",$($script:resultID +1))  
 
     $runTime = $(Get-Date) - $startTime
@@ -2151,7 +2223,7 @@ $startTime = Get-Date
 Create-UniqueFacesTable
 Create-UniqueValuesTable 
 Caclulate-HighestPossibleOccurance
-Caclulate-ResultSize
+Caclulate-NodeCount
 Caclulate-ProjectedResultCount
 
 Create-RestultArray
@@ -2165,8 +2237,6 @@ if($ShowSums -or $ShowAllTables) {
 if($ShowSums) {
     Create-MathSummaryTable
 }
-
-
 
 
 ######################################
