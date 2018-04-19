@@ -862,7 +862,7 @@ function Analyze-Result {
 
 
     if($ShowAllTables -or $ShowExacts)       {Analyze-ResultForExactlyX}
-    #if($ShowAllTables -or $ShowActualFaces)  {Analyze-ResultActualFaces}
+    if($ShowAllTables -or $ShowActualFaces)  {Analyze-ResultActualFaces}
     #if($ShowAllTables -or $ShowOrBetter)  {Analyze-ResultForXOrBetter}
     #if($ShowAllTables -or $ShowHighLow)   {Analyze-ResultForHighAndLowFace}
     #if($ShowSums)      {Analyze-ResultForMathValues}
