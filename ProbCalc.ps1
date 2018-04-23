@@ -861,7 +861,7 @@ function Analyze-Result {
 
     if($ShowAllTables -or $ShowExacts)       {Analyze-ResultForExactlyX}
     if($ShowAllTables -or $ShowActualFaces)  {Analyze-ResultActualFaces}
-    if($ShowAllTables -or $ShowOrBetter)  {Analyze-ResultForXOrBetter}
+    if($ShowAllTables -or $ShowOrBetter)     {Analyze-ResultForXOrBetter}
     #if($ShowAllTables -or $ShowHighLow)   {Analyze-ResultForHighAndLowFace}
     #if($ShowSums)      {Analyze-ResultForMathValues}
 }
@@ -983,11 +983,11 @@ function Analyze-ResultForExactlyX {
 
 ##################################################################################################
 #Looks at the current result and writes data to the 'X or better' table
-#This is the first step in the table the coumns need to be summed for
+#This is the first step in the table the columns need to be summed for
 #that data to be meaniningful
 function Analyze-ResultForHighAndLowFace {
 
-    if($showProcessing) {write-host "  Analyze-ResultForXOrBetter" -ForegroundColor green }
+    if($showProcessing) {write-host "  Analyze-ResultForHighAndLowFace" -ForegroundColor green }
 
 
 
