@@ -232,7 +232,7 @@ for($i = 1; $i -le $Coin; $i++){
 
 #Test 
 for($i = 1; $i -le $Test; $i++){
-    $aryNodes += ,@("Piggy","Blank","Blank&Blank&Blank","Focus&Blank","Focus","Other","Hit","Hit","Crit")
+    $aryNodes += ,@("Piggy","Blank","Blank&Blank&Blank","Other&Blank","Other","Hit","Hit","Crit")
     $ShowActualFaces = $true
 }
 
@@ -393,7 +393,6 @@ function Create-UniqueValuesTable {
 ##################################################################################################
 #calculates how many faces will be in each result.
 #E.g. if five dice are rolled there will be five faces in each result, if four cards are drawn there will be four faces in each result
-#xxxx Need to move to a script varaible insteast of $script:nodeCount
 function Caclulate-NodeCount {
 
     if($DicePool){
@@ -800,7 +799,6 @@ function Calculate-ExactlyX {
 
 ##################################################################################################
 #Generate the rusults to analyze
-#xxx
 function Generate-BruteForceResult {
 
     #if there is no replacment then a single node is used and 
@@ -863,7 +861,7 @@ function Analyze-Result {
 
     if($ShowAllTables -or $ShowExacts)       {Analyze-ResultForExactlyX}
     if($ShowAllTables -or $ShowActualFaces)  {Analyze-ResultActualFaces}
-    #if($ShowAllTables -or $ShowOrBetter)  {Analyze-ResultForXOrBetter}
+    if($ShowAllTables -or $ShowOrBetter)  {Analyze-ResultForXOrBetter}
     #if($ShowAllTables -or $ShowHighLow)   {Analyze-ResultForHighAndLowFace}
     #if($ShowSums)      {Analyze-ResultForMathValues}
 }
@@ -1160,20 +1158,58 @@ function Tally-SumOrLessColumn {
 
 
 ##################################################################################################
-#Count up the number of times a restult or any value greater than that result happens in the
-#math summary table.
+#Tally the number of results where a value occurs X or more times.
 function Tally-ExactXOrMoreTable{
 
     if($showProcessing) {write-host "  Tally-ExactXOrMoreTable" -ForegroundColor green }
 
-    #step through each row
+    #step through each value in the unique values table
     for($row=0; $row -lt $($script:aryUniqueValues.count); $row++) {
+        if($showProcessing) {write-host "    Row: $($script:aryUniqueValues[$row])" -ForegroundColor Yellow  }
+
+        #set the OrMore count equal to the the ExacltyX count highest possible value.
+        #This is the right most column, so will not have the column to its right added to it.
+        $col = $script:maxValueOccCount +1
+        $aryBFExactXOrMoreTable[$row,$col] = $($aryBFExactlyXTable[$row,$col])
+
+        #set the value for each column in the OrMore array equal to the coresponding ExactlyX 
+        #count plus the OrMore count immedialy to its right.
+        #The right-most column is not processed since it is set equal to the coresponding value
+        #just prior to this loop.
+        #The totals are processed from right to left.
+        for($col = $script:maxValueOccCount; $col -ge 1; $col--) {
+            $aryBFExactXOrMoreTable[$row,$col] = $($aryBFExactlyXTable[$row,$col]) + $aryBFExactXOrMoreTable[$row,$($col+1)]
+            $arycalcExactXOrMoreTable[$row,$col] = $($arycalcExactlyXTable[$row,$col]) + $arycalcExactXOrMoreTable[$row,$($col+1)]
+            if($showProcessing) {write-host "      Col: $col  value: $($col -1) Count: $($aryBFExactXOrMoreTable[$row,$col])"  }
+        }
+    }
+}
+
+
+
+##################################################################################################
+#Count up the number of times a restult or any value greater than that result happens in the
+#math summary table.
+function BAK_Tally-ExactXOrMoreTable{
+
+    $showProcessing = $true
+    if($showProcessing) {write-host "  Tally-ExactXOrMoreTable" -ForegroundColor green }
+    if($showProcessing) {write-host "    maxValueOccCount: $script:maxValueOccCount"  }
+
+
+
+    #step through each value in the unique values table
+    for($row=0; $row -lt $($script:aryUniqueValues.count); $row++) {
+        if($showProcessing) {write-host "      Row: $($script:aryUniqueValues[$row])" -ForegroundColor Yellow  }
+
         #step through each node count in that row
-        for($col=1; $col -le $script:nodeCount+1; $col++) {
+        for($col=1; $col -le $script:maxValueOccCount; $col++) {
+            if($showProcessing) {write-host " "  }
             [int]$BFSum = 0
             [single]$CalcSum = 0
-            #total the node value for the current column and the columns to the right of that cloumn
-            for($shortCol=$col; $shortCol -le $script:nodeCount+1; $shortCol++) {
+            #total the node value for the current column and the columns to the right of that column
+            for($shortCol=$col; $shortCol -le $script:maxValueOccCount; $shortCol++) {
+                if($showProcessing) {write-host "        Col: $col - $shortCol"  }
                 $BFSum = $BFSum + $aryBFExactlyXTable[$row,$shortCol]
                 $CalcSum = $CalcSum + $aryCalcExactlyXTable[$row,$shortCol]
             }
@@ -1182,8 +1218,8 @@ function Tally-ExactXOrMoreTable{
             $aryCalcExactXOrMoreTable[$row,$col] = $CalcSum
         }
     }
+    $showProcessing = $false
 }
-
 
 
 ##################################################################################################
@@ -2252,7 +2288,7 @@ Generate-BruteForceResult
 #xxx
 #Calculate-TheoreticalResults
 #xxx
-#Tally-SummaryTables
+Tally-SummaryTables
 
 
 ######################################
