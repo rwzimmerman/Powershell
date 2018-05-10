@@ -896,7 +896,6 @@ function Generate-ResultValueArray{
         foreach($tempValue in $aryTempResultValues) {
             if($uniqueValue -eq $tempValue){
                 $script:aryResultValues = $script:aryResultValues + $uniqueValue
-            } else {
             }
         }
     }
@@ -1097,7 +1096,47 @@ function Analyze-ResultForHighAndLowFace {
 #Looks at the current result and writes data to the 'X or better' table
 #This is the first step in the table the coumns need to be summed for
 #that data to be meaniningful
+#yyy
 function Analyze-ResultForXOrBetter {
+
+    if($showProcessing) {write-host "  Analyze-ResultForXOrBetter" -ForegroundColor green }
+
+
+    write-host ""
+
+    
+
+
+    $colCount = $script:aryResultValues.count
+    #step throuch each column
+    for($col = 0; $col -lt $colCount; $col++) {
+        $quant = ($colCount) - $col
+        $valueName = $script:aryResultValues[$col]
+
+        write-host "  $col - $quant x $valueName" -ForegroundColor blue
+        foreach($uniqueValue in $script:aryUniqueValues) {
+            write-host "    $uniqueValue" -ForegroundColor green
+            Incriment-SummaryArray -Value $valueName -OccCount $quant -OrBetter -BruteForce
+
+
+            if($uniqueValue -eq $valueName) {break}
+
+        }
+
+
+
+
+
+
+    }
+}
+
+
+##################################################################################################
+#Looks at the current result and writes data to the 'X or better' table
+#This is the first step in the table the coumns need to be summed for
+#that data to be meaniningful
+function OLD-Analyze-ResultForXOrBetter {
 
     if($showProcessing) {write-host "  Analyze-ResultForXOrBetter" -ForegroundColor green }
 
