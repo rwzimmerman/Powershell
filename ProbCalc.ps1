@@ -100,8 +100,9 @@ $aryFaces = @()               #This array holds the value on each face of each n
 $aryNodes = @()               #An array of node arrays.  Each element of this array is an array of the faced on that node.
 $aryUniqueFaces = @()         #This array is a list of the unique faces on each node
 $aryUniqueValues = @()        #This array is a list of the unique values on all the faces of all nodes. 
-                              #  A muti-value faces count as having two unique values. E.g. Hit&Crit counts as Hit and Crit, NOT as Hit&Crit
-$aryResult = @()              #This array is the current result
+                              #A muti-value faces count as having two unique values. E.g. Hit&Crit counts as Hit and Crit, NOT as Hit&Crit
+$aryResultFaces = @()         #This array contains the faces of the current result
+$aryResultValues = @()        #This array contains the individual values (parsed faces) of the current result
 
 #Below are the summary arrays.  
 #They tally how many times a given result occurs in the scenario. When creating these arrays the script will how many rows and columns the
@@ -232,7 +233,7 @@ for($i = 1; $i -le $Coin; $i++){
 
 #Test 
 for($i = 1; $i -le $Test; $i++){
-    $aryNodes += ,@("Piggy","Blank","Blank&Blank&Blank","Other&Blank","Other","Hit","Hit","Crit")
+    $aryNodes += ,@("Least","Blank","Blank&Blank&Blank","Focus&Blank","Hit","Hit","Crit")
     $ShowActualFaces = $true
 }
 
@@ -297,7 +298,7 @@ function Create-RestultArray {
     if($showProcessing) {write-host "  Create-RestultArray" -ForegroundColor green }
 
     for($i = 1; $i -le $script:nodeCount; $i++) {
-        $script:aryResult += "empty"
+        $script:aryResultFaces += "empty"
     }
 }
 
@@ -361,7 +362,8 @@ function Create-UniqueValuesTable {
         if(isNumeric $face) {
             $faceValues = $face
         }else{
-            $faceValues = $face.split("{$nodeDelimiter}")
+            #$faceValues = $face.split("{$nodeDelimiter}")
+            $faceValues = Parse-Face -Face $face
         }
         foreach($value in $faceValues) {
 
@@ -454,7 +456,9 @@ function Caclulate-HighestPossibleOccurance {
                 if(isNumeric $face) {
                     $values = $face
                 }else{
-                    $values = $face.split("{$nodeDelimiter}")
+                    #$values = $face.split("{$nodeDelimiter}")
+                    $values = Parse-Face -Face $face
+
                 }
                 #Step through each value on the face.  If it matches incriment the value count.
                 foreach($value in $values){
@@ -517,7 +521,8 @@ function OLDCaclulate-HighestPossibleOccurance {
                 if(isNumeric $face) {
                     $values = $face
                 }else{
-                    $values = $face.split("{$nodeDelimiter}")
+                    #$values = $face.split("{$nodeDelimiter}")
+                    $values = Parse-Face -Face $face
                 }
                 foreach($value in $values){
                     if($value -eq $uniqueValue){
@@ -832,14 +837,14 @@ function Generate-BruteForceResultForDicePool {
 
     $Node = $script:aryNodes[$nodeNum]
     foreach($face in $Node ) {
-        $script:aryResult[$nodeNum] = $face
+        $script:aryResultFaces[$nodeNum] = $face
 
         if($nodeNum -lt $script:nodeCount -1) {
             $nextNode = $nodeNum +1
             Generate-BruteForceResultForDicePool $nextNode
         } else {
             $script:resultID = $script:resultID +1
-            if($showProcessing) {write-host "    Result: $script:aryResult   Progress: $script:resultID / $script:projectedResultCount" -ForegroundColor yellow }
+            if($showProcessing) {write-host "    Result: $script:aryResultFaces   Progress: $script:resultID / $script:projectedResultCount" -ForegroundColor yellow }
             Write-Progress -Activity "Generating Results" -status "Result $script:resultID of $script:projectedResultCount" -percentComplete ($script:resultID / $script:projectedResultCount * 100)
             Analyze-Result
         }
@@ -857,7 +862,7 @@ function Analyze-Result {
 
 
     #Display-CurrentRestult
-
+    Generate-ResultValueArray
 
     if($ShowAllTables -or $ShowExacts)       {Analyze-ResultForExactlyX}
     if($ShowAllTables -or $ShowActualFaces)  {Analyze-ResultActualFaces}
@@ -865,6 +870,47 @@ function Analyze-Result {
     #if($ShowAllTables -or $ShowHighLow)   {Analyze-ResultForHighAndLowFace}
     #if($ShowSums)      {Analyze-ResultForMathValues}
 }
+
+
+##################################################################################################
+#Parses the array of Faces into individual values and saves them in the array of values
+function Generate-ResultValueArray{
+
+    if($showProcessing) {write-host "Generate-ResultValueArray"-ForegroundColor green }
+
+    #Clear the existing result values array
+    $script:aryResultValues = @()
+    #create a temporary value array
+    $aryTempResultValues = @()
+
+    #Parse the result faces array and add the individual values to the result values array
+    foreach($face in $script:aryresultFaces) {
+        $values = Parse-Face -Face $face
+        $aryTempResultValues = $aryTempResultValues + $values
+    }
+    if($showProcessing) {write-host "  `nRaw Values: $aryTempResultValues"}
+
+    #Sort the result values array so the values are listed in the same order as the unique values array.
+    #This script assumes the unique value array lists items from the least value to the highest value.
+    foreach($uniqueValue in $script:aryUniqueValues) {
+        foreach($tempValue in $aryTempResultValues) {
+            if($uniqueValue -eq $tempValue){
+                $script:aryResultValues = $script:aryResultValues + $uniqueValue
+            } else {
+            }
+        }
+    }
+
+    #output the sorted values of the result
+    if($showProcessing) {write-host "  Sorted Values: $script:aryResultValues"}
+
+}
+
+
+
+
+
+
 
 ##################################################################################################
 #Creates secondary summary tables
@@ -891,7 +937,7 @@ function Analyze-ResultForMathValues {
 
     #tally the total of all nodes
     $total = 0
-    foreach ($node in $script:aryResult) {
+    foreach ($node in $script:aryResultFaces) {
         $total = $total + [int]$node
     }
 
@@ -914,7 +960,7 @@ function Analyze-ResultForMathValues {
 function Analyze-ResultActualFaces {
 
     if($showProcessing) {write-host "  Analyze-ResultActualFaces" -ForegroundColor green }
-    if($showProcessing) {write-host "    $script:aryResult"  -ForegroundColor yellow }
+    if($showProcessing) {write-host "    $script:aryResultFaces"  -ForegroundColor yellow }
 
     #Step through each face in the unique faces array
     foreach($uniqueFace in $script:aryUniqueFaces) {        
@@ -922,7 +968,7 @@ function Analyze-ResultActualFaces {
         $occCount = 0
         #step through each face in the result
         
-        foreach($face in $script:aryResult) {
+        foreach($face in $script:aryResultFaces) {
             if ($uniqueFace -eq $face) {
                 #if the restult's face matches the current face incriment the counter
                 $occCount++
@@ -954,9 +1000,11 @@ function Analyze-ResultForExactlyX {
         }
         $tally = 0
         #step through each node of the result
-        foreach ($node in $script:aryResult) {
+        foreach ($node in $script:aryResultFaces) {
             #step through each value on the face of the node
-            $faceValueList = $node.split("{$nodeDelimiter}")
+            #$faceValueList = $node.split("{$nodeDelimiter}")
+            $faceValueList = Parse-Face -Face $node
+
             foreach($faceValue in $faceValueList) {
                 if($faceValue -eq $value) {
                     #if there is a match incriment the count for that value
@@ -992,24 +1040,24 @@ function Analyze-ResultForHighAndLowFace {
 
 
     #Create a copy of the current result and convert the faces to numbers
-    $aryResultAsRows = @()
-    for($i = 0; $i -lt $script:aryResult.count; $i++) {
-        $row = Convert-FaceToUniqueValuesRow -value $script:aryResult[$i]
-        $aryResultAsRows += $row
+    $aryResultFacesAsRows = @()
+    for($i = 0; $i -lt $script:aryResultFaces.count; $i++) {
+        $row = Convert-FaceToUniqueValuesRow -value $script:aryResultFaces[$i]
+        $aryResultFacesAsRows += $row
     }
 
     #sort the array so lowest result is first
-    $aryResultAsRowsSorted = $aryResultAsRows | Sort-Object 
+    $aryResultFacesAsRowsSorted = $aryResultFacesAsRows | Sort-Object 
     #the number of columns in the result
-    $colCount = $aryResultAsRowsSorted.count
+    $colCount = $aryResultFacesAsRowsSorted.count
 
     #If Malifaux Jokers are in effect then proccess
     if($MalifauxJokers) {
         #check to see if there are any black jokers
         #if so both highest and lowest result is a black joker
-        for($i = 0; $i -lt $script:aryResult.count; $i++) {
-            #write-host "$($script:aryResult[$i])" -ForegroundColor red
-            if($($script:aryResult[$i]) -eq "BJ") {
+        for($i = 0; $i -lt $script:aryResultFaces.count; $i++) {
+            #write-host "$($script:aryResultFaces[$i])" -ForegroundColor red
+            if($($script:aryResultFaces[$i]) -eq "BJ") {
                 Incriment-SummaryArray -Value "BJ"  -LowFace -BruteForce
                 Incriment-SummaryArray -Value "BJ"  -HighFace -BruteForce
                 return
@@ -1019,9 +1067,9 @@ function Analyze-ResultForHighAndLowFace {
         #if there are no black jokers then 
         #check to see if there are any red jokers
         #if so both highest and lowest result is a red joker
-        for($i = 0; $i -lt $script:aryResult.count; $i++) {
-            #write-host "$($script:aryResult[$i])" -ForegroundColor red
-            if($($script:aryResult[$i]) -eq "RJ") {
+        for($i = 0; $i -lt $script:aryResultFaces.count; $i++) {
+            #write-host "$($script:aryResultFaces[$i])" -ForegroundColor red
+            if($($script:aryResultFaces[$i]) -eq "RJ") {
                 Incriment-SummaryArray -Value "RJ" -LowFace -BruteForce
                 Incriment-SummaryArray -Value "RJ" -HighFace -BruteForce
                 return
@@ -1031,16 +1079,16 @@ function Analyze-ResultForHighAndLowFace {
     }
 
     #write the lowest faces to the lowface table
-    #$lowFace = $aryResultAsRowsSorted[0] 
+    #$lowFace = $aryResultFacesAsRowsSorted[0] 
 
-    write-host "aryResultAsRowsSorted[0]: $($aryResultAsRowsSorted[0])" -ForegroundColor green
+    write-host "aryResultFacesAsRowsSorted[0]: $($aryResultFacesAsRowsSorted[0])" -ForegroundColor green
 
-    $faceName = Convert-RowToUniqueValue -Row $aryResultAsRowsSorted[0]
+    $faceName = Convert-RowToUniqueValue -Row $aryResultFacesAsRowsSorted[0]
     Incriment-SummaryArray -Value $faceName -LowFace -BruteForce
 
     #write the highest faces to the hightface table
-    #$highFace = $aryResultAsRowsSorted[$colCount -1] 
-    $faceName = Convert-RowToUniqueValue -Row $aryResultAsRowsSorted[$colCount -1]
+    #$highFace = $aryResultFacesAsRowsSorted[$colCount -1] 
+    $faceName = Convert-RowToUniqueValue -Row $aryResultFacesAsRowsSorted[$colCount -1]
     Incriment-SummaryArray -Value $faceName -HighFace -BruteForce
 }
 
@@ -1054,23 +1102,23 @@ function Analyze-ResultForXOrBetter {
     if($showProcessing) {write-host "  Analyze-ResultForXOrBetter" -ForegroundColor green }
 
     #Create a copy of the current result and convert the faces to numbers
-    $aryResultAsRows = @()
-    for($i = 0; $i -lt $script:aryResult.count; $i++) {
-        $row = Convert-FaceToUniqueValuesRow -value $script:aryResult[$i]
-        $aryResultAsRows += $row 
+    $aryResultFacesAsRows = @()
+    for($i = 0; $i -lt $script:aryResultFaces.count; $i++) {
+        $row = Convert-FaceToUniqueValuesRow -value $script:aryResultFaces[$i]
+        $aryResultFacesAsRows += $row 
     }
 
     #sort the array so lowest result is first
-    $aryResultAsRowsSorted = $aryResultAsRows | Sort-Object 
+    $aryResultFacesAsRowsSorted = $aryResultFacesAsRows | Sort-Object 
     #the number of columns in the result
-    $colCount = $aryResultAsRowsSorted.count
+    $colCount = $aryResultFacesAsRowsSorted.count
     #step throuch each column
     for($col = 0; $col -lt $colCount; $col++) {
         #the number of nodes that have this value or better are the currnt node
         #plus any nodes left to evaluate, since the result has been sorted in
         #ascending order any values left must be of an equal or higher value.
         $quant = ($colCount) - $col
-        $faceName = Convert-RowToUniqueValue -Row $aryResultAsRowsSorted[$col]
+        $faceName = Convert-RowToUniqueValue -Row $aryResultFacesAsRowsSorted[$col]
         Incriment-SummaryArray -Value $faceName -OccCount $quant -OrBetter -BruteForce
     }
 }
@@ -1192,7 +1240,6 @@ function Tally-ExactXOrMoreTable{
 #math summary table.
 function BAK_Tally-ExactXOrMoreTable{
 
-    $showProcessing = $true
     if($showProcessing) {write-host "  Tally-ExactXOrMoreTable" -ForegroundColor green }
     if($showProcessing) {write-host "    maxValueOccCount: $script:maxValueOccCount"  }
 
@@ -1218,7 +1265,6 @@ function BAK_Tally-ExactXOrMoreTable{
             $aryCalcExactXOrMoreTable[$row,$col] = $CalcSum
         }
     }
-    $showProcessing = $false
 }
 
 
@@ -1313,7 +1359,7 @@ function Incriment-SummaryArray {
 function Display-CurrentRestult {
     
         [string]$output = "    ID: $script:resultID"
-        foreach($result in $script:aryResult) {
+        foreach($result in $script:aryResultFaces) {
             $output = $output + "   " + $result
         }
         Write-host $output -ForegroundColor Yellow
@@ -1703,6 +1749,29 @@ function Display-Tables {
 ##################################################################################################
 # Helper Functions
 ##################################################################################################
+
+
+##################################################################################################
+#Parse Faces into individual values
+function Parse-Face{
+    param (
+        [string[]]$Face       #The face to be parsed
+    )
+    if($showProcessing) {write-host "Parse-Face"-ForegroundColor green }
+    if($showProcessing) {write-host "  Input Face: $face" }
+
+    $faceValues = $face.split("{$nodeDelimiter}")
+
+    if($showProcessing) {
+        foreach($value in $faceValues){
+            write-host "    $value"
+        }    
+    }
+    return $faceValues
+}
+
+
+
 
 ##################################################################################################
 #Formats percentages from deicimal or fraction input
