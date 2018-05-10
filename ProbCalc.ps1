@@ -1097,6 +1097,8 @@ function Analyze-ResultForHighAndLowFace {
 #This is the first step in the table the coumns need to be summed for
 #that data to be meaniningful
 #yyy
+
+
 function Analyze-ResultForXOrBetter {
 
     if($showProcessing) {write-host "  Analyze-ResultForXOrBetter" -ForegroundColor green }
