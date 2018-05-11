@@ -495,65 +495,6 @@ function Caclulate-HighestPossibleOccurance {
 
 
 
-##################################################################################################
-#Calculates the maximum number of times any one result can appear.
-#E.g. if the nodes are A,B,C and AA,A,A then A can appear up to 3 times, B and C can appear up to
-#1 time each, so would return 3.
-
-function OLDCaclulate-HighestPossibleOccurance {
-
-    $showProcessing = $true
-    if($showProcessing) {write-host "  `nCaclulate-HighestPossibleOccurance" -ForegroundColor green }
-    $totalOccCount = 0
-
-    #step through each unique value
-    if($showProcessing) {write-host "    Unique Values to process" -ForegroundColor green }
-    foreach ($uniqueValue in $script:aryUniqueValues) {
-        if($showProcessing) {write-host "      Matching Against: $uniqueValue " -ForegroundColor blue}
-        $occCount = 0
-
-        #Step through each node
-        foreach($node in $script:aryNodes) {
-            $highestOccCountPerFace = 0
-            foreach($face in $node) {
-
-                #break the face into individual values and step through each value
-                if(isNumeric $face) {
-                    $values = $face
-                }else{
-                    #$values = $face.split("{$nodeDelimiter}")
-                    $values = Parse-Face -Face $face
-                }
-                foreach($value in $values){
-                    if($value -eq $uniqueValue){
-                        $occCount ++
-                        if($showProcessing) {write-host "        $uniqueValue  = $value  Occ Count = $occCount   [Face: $face]    Node: $node" -ForegroundColor green}
-                    } else {
-                        if($showProcessing) {write-host "        $uniqueValue != $value  Occ Count = $occCount   [Face: $face]    Node: $node" -ForegroundColor Red}
-
-                    }
-
-                    if($occCount -gt $highestOccCountPerFace) {
-                        $highestOccCountPerFace =  $occCount
-                    }
-    
-                }
-
-
-
-            }#end Face foreach
-            #Add the occ count for the face on this node with the most occurnaces
-            $totalOccCount = $occCount
-            if($showProcessing) {write-host "          $uniqueValue count: $occCount / highest count: $totalOccCount" }
-
-        } #end node Foreach
-
-    }#end uniqueValue foreach
-    $script:maxValueOccCount = $totalOccCount
-}
-
-
-
 
     
 ##################################################################################################
@@ -917,7 +858,6 @@ function Generate-ResultValueArray{
 #
 function Tally-SummaryTables{
     if($ShowAllTables -or $ShowExacts)    {Tally-ExactXOrMoreTable}
-    if($ShowAllTables -or $ShowOrBetter)  {Tally-OrBetterTable}
     if($ShowAllTables -or $ShowHighLow)   {}
     if($ShowSums) {
         Tally-SumOrMoreColumn
@@ -1096,92 +1036,33 @@ function Analyze-ResultForHighAndLowFace {
 #Looks at the current result and writes data to the 'X or better' table
 #This is the first step in the table the coumns need to be summed for
 #that data to be meaniningful
-#yyy
 
 
 function Analyze-ResultForXOrBetter {
 
     if($showProcessing) {write-host "  Analyze-ResultForXOrBetter" -ForegroundColor green }
 
-
-    write-host ""
-
-    
-
-
+    #The restult values have already been sorted from lowest value to highest.
+    #Step through each value from lowest to highest
     $colCount = $script:aryResultValues.count
-    #step throuch each column
     for($col = 0; $col -lt $colCount; $col++) {
+        #Calculate how many values are still to be processed (including this one).  Since the values are sorted
+        #from low to high value the number of values to be processed is how many of the current value or better
+        #occured in this result. 
         $quant = ($colCount) - $col
         $valueName = $script:aryResultValues[$col]
-
-        write-host "  $col - $quant x $valueName" -ForegroundColor blue
+        #Step thorough each possible value from lowest to highest. Incriment each of those value/quantities 
+        #until the matching quantity is found.  E.g. if the current colum is for 2 threes, then first 2 ones
+        #will be incrimented, then 2 twos, then 2 threes.  Then the loop will repeat for the next column
+        #in the result which will be 1 three, which will incriment 1 one, 1 two and 1 three.  After that
+        #then next column in the result will be processed which will have a value of four or more.
         foreach($uniqueValue in $script:aryUniqueValues) {
-            write-host "    $uniqueValue" -ForegroundColor green
-            Incriment-SummaryArray -Value $valueName -OccCount $quant -OrBetter -BruteForce
-
-
+            Incriment-SummaryArray -Value $uniqueValue -OccCount $quant -OrBetter -BruteForce
             if($uniqueValue -eq $valueName) {break}
-
-        }
-
-
-
-
-
-
-    }
-}
-
-
-##################################################################################################
-#Looks at the current result and writes data to the 'X or better' table
-#This is the first step in the table the coumns need to be summed for
-#that data to be meaniningful
-function OLD-Analyze-ResultForXOrBetter {
-
-    if($showProcessing) {write-host "  Analyze-ResultForXOrBetter" -ForegroundColor green }
-
-    #Create a copy of the current result and convert the faces to numbers
-    $aryResultFacesAsRows = @()
-    for($i = 0; $i -lt $script:aryResultFaces.count; $i++) {
-        $row = Convert-FaceToUniqueValuesRow -value $script:aryResultFaces[$i]
-        $aryResultFacesAsRows += $row 
-    }
-
-    #sort the array so lowest result is first
-    $aryResultFacesAsRowsSorted = $aryResultFacesAsRows | Sort-Object 
-    #the number of columns in the result
-    $colCount = $aryResultFacesAsRowsSorted.count
-    #step throuch each column
-    for($col = 0; $col -lt $colCount; $col++) {
-        #the number of nodes that have this value or better are the currnt node
-        #plus any nodes left to evaluate, since the result has been sorted in
-        #ascending order any values left must be of an equal or higher value.
-        $quant = ($colCount) - $col
-        $faceName = Convert-RowToUniqueValue -Row $aryResultFacesAsRowsSorted[$col]
-        Incriment-SummaryArray -Value $faceName -OccCount $quant -OrBetter -BruteForce
-    }
-}
-
-
-##################################################################################################
-# Uses the raw data in the table to tally the complete "or better" vlaues in the table
-function Tally-OrBetterTable {
-
-    if($showProcessing) {write-host "  Tally-OrBetterTable" -ForegroundColor green }
-
-    #step through each colum
-    for($col = 1; $col -le $script:nodeCount; $col++) {
-        #Step through each row in the column from lowest value to highest
-        for($row = 0; $row -le $script:aryUniqueValues.count; $row++) {
-            #add the values of all the higher value results to this result
-            for($shortRow = $row +1; $shortRow -le $script:aryUniqueValues.count; $shortRow++) {
-                $script:aryBFOrBetterTable[$Row,$col] = $script:aryBFOrBetterTable[$Row,$col] + $($script:aryBFOrBetterTable[$shortRow,$col])
-            }
         }
     }
 }
+
 
 
 
@@ -1276,43 +1157,10 @@ function Tally-ExactXOrMoreTable{
 
 
 
-##################################################################################################
-#Count up the number of times a restult or any value greater than that result happens in the
-#math summary table.
-function BAK_Tally-ExactXOrMoreTable{
-
-    if($showProcessing) {write-host "  Tally-ExactXOrMoreTable" -ForegroundColor green }
-    if($showProcessing) {write-host "    maxValueOccCount: $script:maxValueOccCount"  }
-
-
-
-    #step through each value in the unique values table
-    for($row=0; $row -lt $($script:aryUniqueValues.count); $row++) {
-        if($showProcessing) {write-host "      Row: $($script:aryUniqueValues[$row])" -ForegroundColor Yellow  }
-
-        #step through each node count in that row
-        for($col=1; $col -le $script:maxValueOccCount; $col++) {
-            if($showProcessing) {write-host " "  }
-            [int]$BFSum = 0
-            [single]$CalcSum = 0
-            #total the node value for the current column and the columns to the right of that column
-            for($shortCol=$col; $shortCol -le $script:maxValueOccCount; $shortCol++) {
-                if($showProcessing) {write-host "        Col: $col - $shortCol"  }
-                $BFSum = $BFSum + $aryBFExactlyXTable[$row,$shortCol]
-                $CalcSum = $CalcSum + $aryCalcExactlyXTable[$row,$shortCol]
-            }
-            #save the total to the Exact or more table
-            $aryBFExactXOrMoreTable[$row,$col] = $BFSum
-            $aryCalcExactXOrMoreTable[$row,$col] = $CalcSum
-        }
-    }
-}
-
 
 ##################################################################################################
 #Summary arrays keep track of how many times an outcome occurs.  This functions adds the proper
 #value to the proper summary array.
-
 
 function Incriment-SummaryArray {
     param(
