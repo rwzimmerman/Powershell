@@ -42,10 +42,11 @@
         Updated: Feb 2018
 
         To Do:
-            Add Calcualted restuls for Exhausing faces, "Or Better", Sums, Highest/Lowest
-            Add Rolling differing dice (e.g. Fallout colored dice)
-            Add Compound faces (e.g. dice with 1 hit and 2 hit faces)
+            Get Draw Pools Working
+            Get Exhausting BF working
+            Get Malifaux Jokers BE Working
             Add Rerolls
+            Get ALL Calcs working
             Add CSV Export
 
 
@@ -60,28 +61,28 @@
 
 param(
     #Nodes
-    [int]$XWingAtt,              #Use XWing attack dice are being used 
-    [int]$XWingDef,              #Use XWing defence dice are being used 
-    [int]$SWLDefWhite,             #Use Star Wars Legion White 6 Sided die
-    [int]$SWLDefRed,               #Use Star Wars Legion Red 6 Sided die
-    [int]$SWLAttWhite,             #Use Star Wars Legion White 8 Sided die
-    [int]$SWLAttRed,               #Use Star Wars Legion Red 8 Sided die
-    [int]$SWLAttBlack,             #Use Star Wars Legion Black 8 Sided die
-    [int]$d4,                    #Use a d4 (1,2,3,4)
-    [int]$d6,                    #Use a d4 (1,2,3,4,5,6)
-    [int]$d8,                    #Use a d4 (1,2,3,4,5,6,7,8)
-    [int]$d10,                   #Use a d4 (1,2,3,4,5,6,7,8,9,10)
-    [int]$d12,                   #Use a d4 (1,2,3,4,5,6,7,8,9,10,11,12)
-    [int]$d20,                   #Use a d4 (1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20)
-    [int]$dx,                    #Use a test die
-    [int]$Coin,                  #Use a coin (Heads,Tails)
-    [int]$MalifauxSuited,        #Use an exhausting deck of cards and malifaux joker logic
-    [int]$MalifauxUnsuited,      #Use an exhausting deck of cards, where the suits do not matter and malifaux joker logic
+    [int]$XWingAtt,                 #Use XWing attack dice are being used 
+    [int]$XWingDef,                 #Use XWing defence dice are being used 
+    [int]$SWLDefWhite,              #Use Star Wars Legion White 6 Sided die
+    [int]$SWLDefRed,                #Use Star Wars Legion Red 6 Sided die
+    [int]$SWLAttWhite,              #Use Star Wars Legion White 8 Sided die
+    [int]$SWLAttRed,                #Use Star Wars Legion Red 8 Sided die
+    [int]$SWLAttBlack,              #Use Star Wars Legion Black 8 Sided die
+    [int]$d4,                       #Use a d4 (1,2,3,4)
+    [int]$d6,                       #Use a d6 (1,2,3,4,5,6)
+    [int]$d8,                       #Use a d8 (1,2,3,4,5,6,7,8)
+    [int]$d10,                      #Use a d10 (1,2,3,4,5,6,7,8,9,10)
+    [int]$d12,                      #Use a d12 (1,2,3,4,5,6,7,8,9,10,11,12)
+    [int]$d20,                      #Use a d20 (1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20)
+    [int]$dx,                       #Use a test die
+    [int]$Coin,                     #Use a coin (Heads,Tails)
+    [int]$MalifauxSuited,           #Use an exhausting deck of cards and malifaux joker logic
+    [int]$MalifauxUnsuited,         #Use an exhausting deck of cards, where the suits do not matter and malifaux joker logic
     #Options
-    [switch]$DicePool,           #True if each node has exactly one result and is unchangable (e.g. like rolling a group of dice)
-    [switch]$DrawPool,           #True if each 'node' forms a single pool the yeilds one result (e.g. like putting differcont collored rocks in a bag)
-    [switch]$NoReplacement,      #True if faces are unique and cannot restult twice (e.g. removing the 3 of hearts from a deck after it is drawn)
-                                 #only valid with DrawPools
+    [switch]$DicePool,              #True if each node has exactly one result and is unchangable (e.g. like rolling dice)
+    [switch]$DrawPool,              #True if each 'node' forms a single pool the yeilds one result (e.g. like putting differcont colored rocks in a bag)
+    [switch]$NoReplacement,         #True if faces are unique and cannot restult twice (e.g. removing the 3 of hearts from a deck after it is drawn)
+                                    #only valid with DrawPools
     [switch]$MalifauxJokers,        #True if Malfiaux joker logic should be applied
     [switch]$ShowSums,              #Show the probability of sums occuring for numeric nodes (e.g. rolling 9 an 2d6)
     [switch]$ShowExacts,            #Show the probability of an exact value occuring (e.g. getting one 5 on 2d6)
@@ -134,7 +135,6 @@ $aryResultValues = @()        #This array contains the individual values (parsed
 
 #Variables
 $resultID = -1                  #The current result
-$restultSizeToReplaceNodCnt = 0                #How many faces will be in each result
 $nodeCount = 0
 $sumsWidth = 1                  #default value will be reset if numeric dice are used
 $maxValueOccCount = 0           #The greatest number of times a value can occur (e.g. with nodes a,b,c and a,b&b,c it would be 3 since b can occure three times)
@@ -268,17 +268,6 @@ if($MalifauxUnsuited -gt 0) {
     $ShowHighLow = $true
 }
 
-
-
-
-
-foreach($Node in $aryNodes) {
-    write-host $node -ForegroundColor blue
-}
-Write-Host "Node Count: $($aryNodes.Count)" -ForegroundColor Blue
-
-
-
 $ShowExacts = $true
 $ShowActualFaces = $true
 
@@ -404,8 +393,6 @@ function Caclulate-NodeCount {
     }else{
         $script:nodeCount = 0
     }
-
-    write-host "NodeCount: $script:nodeCount" -ForegroundColor Cyan
 
 }
 
@@ -808,8 +795,8 @@ function Analyze-Result {
     if($ShowAllTables -or $ShowExacts)       {Analyze-ResultForExactlyX}
     if($ShowAllTables -or $ShowActualFaces)  {Analyze-ResultActualFaces}
     if($ShowAllTables -or $ShowOrBetter)     {Analyze-ResultForXOrBetter}
-    #if($ShowAllTables -or $ShowHighLow)   {Analyze-ResultForHighAndLowFace}
-    #if($ShowSums)      {Analyze-ResultForMathValues}
+    if($ShowAllTables -or $ShowHighLow)      {Analyze-ResultForHighAndLowFace}
+    if($ShowSums)                            {Analyze-ResultForMathValues}
 }
 
 
@@ -870,17 +857,19 @@ function Tally-SummaryTables{
 
 
 ##################################################################################################
+#
 function Analyze-ResultForMathValues {
+    #Gets the sum of all the values in the result value array.  Then update the Sums Summary table.
 
     if($showProcessing) {write-host "  Analyze-ResultForMathValues" -ForegroundColor green }
 
-    #tally the total of all nodes
+    #Step through each value in the result values array and total the values
     $total = 0
-    foreach ($node in $script:aryResultFaces) {
+    foreach ($node in $script:aryResultvalues) {
         $total = $total + [int]$node
     }
 
-    #incriment the Exact value array
+    #incriment the Sums table
     $script:arySumsTable[$total,$script:sumsColExactBF] = $script:arySumsTable[$total,$script:sumsColExactBF] +1
     $script:arySumsTable[$total,$script:sumsColOrMoreBF] = $script:arySumsTable[$total,$script:sumsColOrMoreBF] +1
     $script:arySumsTable[$total,$script:sumsColOrLessBF] = $script:arySumsTable[$total,$script:sumsColOrLessBF] +1
@@ -968,67 +957,22 @@ function Analyze-ResultForExactlyX {
 
 
 
+
 ##################################################################################################
-#Looks at the current result and writes data to the 'X or better' table
-#This is the first step in the table the columns need to be summed for
-#that data to be meaniningful
+#Looks at the already sorted array of values for the current result and incriments the highest
+#and lowest value.
 function Analyze-ResultForHighAndLowFace {
 
     if($showProcessing) {write-host "  Analyze-ResultForHighAndLowFace" -ForegroundColor green }
 
+    #The result value array has been sorted lowest to highest value.  Get the first and last
+    #values in the array
+    $lowestValue = $aryResultValues[0]
+    $highestValue = $aryResultValues[$($aryResultValues.Count -1)]
 
-
-    #Create a copy of the current result and convert the faces to numbers
-    $aryResultFacesAsRows = @()
-    for($i = 0; $i -lt $script:aryResultFaces.count; $i++) {
-        $row = Convert-FaceToUniqueValuesRow -value $script:aryResultFaces[$i]
-        $aryResultFacesAsRows += $row
-    }
-
-    #sort the array so lowest result is first
-    $aryResultFacesAsRowsSorted = $aryResultFacesAsRows | Sort-Object 
-    #the number of columns in the result
-    $colCount = $aryResultFacesAsRowsSorted.count
-
-    #If Malifaux Jokers are in effect then proccess
-    if($MalifauxJokers) {
-        #check to see if there are any black jokers
-        #if so both highest and lowest result is a black joker
-        for($i = 0; $i -lt $script:aryResultFaces.count; $i++) {
-            #write-host "$($script:aryResultFaces[$i])" -ForegroundColor red
-            if($($script:aryResultFaces[$i]) -eq "BJ") {
-                Incriment-SummaryArray -Value "BJ"  -LowFace -BruteForce
-                Incriment-SummaryArray -Value "BJ"  -HighFace -BruteForce
-                return
-                #return both high and lowest cards are BJ so no need to continue
-            }
-        }
-        #if there are no black jokers then 
-        #check to see if there are any red jokers
-        #if so both highest and lowest result is a red joker
-        for($i = 0; $i -lt $script:aryResultFaces.count; $i++) {
-            #write-host "$($script:aryResultFaces[$i])" -ForegroundColor red
-            if($($script:aryResultFaces[$i]) -eq "RJ") {
-                Incriment-SummaryArray -Value "RJ" -LowFace -BruteForce
-                Incriment-SummaryArray -Value "RJ" -HighFace -BruteForce
-                return
-                #return both high and lowest cards are RJ so no need to continue
-            }
-        }
-    }
-
-    #write the lowest faces to the lowface table
-    #$lowFace = $aryResultFacesAsRowsSorted[0] 
-
-    write-host "aryResultFacesAsRowsSorted[0]: $($aryResultFacesAsRowsSorted[0])" -ForegroundColor green
-
-    $faceName = Convert-RowToUniqueValue -Row $aryResultFacesAsRowsSorted[0]
-    Incriment-SummaryArray -Value $faceName -LowFace -BruteForce
-
-    #write the highest faces to the hightface table
-    #$highFace = $aryResultFacesAsRowsSorted[$colCount -1] 
-    $faceName = Convert-RowToUniqueValue -Row $aryResultFacesAsRowsSorted[$colCount -1]
-    Incriment-SummaryArray -Value $faceName -HighFace -BruteForce
+    #Increment the Highest and Lowest Value arrays
+    Incriment-SummaryArray -Value $lowestValue -LowValue -BruteForce
+    Incriment-SummaryArray -Value $highestValue -highValue -BruteForce
 }
 
 
@@ -1164,15 +1108,15 @@ function Tally-ExactXOrMoreTable{
 
 function Incriment-SummaryArray {
     param(
-        [string]$Face,           #the name of the face to incriment
-        [string]$Value,           #the name of the face to incriment
+        [string]$Face,                #the name of the face to incriment
+        [string]$Value,               #the name of the face to incriment
         [int]$OccCount,               #the number of times the face occured
         [int]$Tally,                  #the number of times the face/occurance combo occured
         [switch]$OrBetter,            #
         [switch]$ActualFaces,         #true if the Actaul Faces array shoud be updated
         [switch]$ExactlyX,            #true if the Exact Occurnaces array shoud be updated
-        [switch]$HighFace,            #true if the HighFace array shoud be updated
-        [switch]$LowFace,             #true if the LowFce array shoud be updated
+        [switch]$HighValue,           #
+        [switch]$LowValue,             #
         [switch]$Calculated,          #
         [switch]$BruteForce           #
     )
@@ -1206,15 +1150,15 @@ function Incriment-SummaryArray {
         }
 
     #udpate High Face    
-    } elseif ($HighFace -or $LowFace) {
+    } elseif ($HighValue -or $LowValue) {
         $row = Convert-FaceToUniqueValuesRow -value $Value
-        if       ($HighFace -and $BruteForce) {
+        if       ($HighValue -and $BruteForce) {
             $col = $script:highLowColHighestBF
-        } elseif ($HighFace -and $Calculated) {
+        } elseif ($HighValue -and $Calculated) {
             $col = $script:highLowColHighestCalc
-        } elseif ($LowFace  -and $BruteForce) {
+        } elseif ($LowValue  -and $BruteForce) {
             $col = $script:highLowColLowestBF
-        } elseif ($LowFace  -and $Calculated) {
+        } elseif ($LowValue  -and $Calculated) {
             $col = $script:highLowColLowestCalc
         }
         $script:aryHighLowTable[$row,$col] = $script:aryHighLowTable[$row,$col] + 1
