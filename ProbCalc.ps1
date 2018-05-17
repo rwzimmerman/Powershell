@@ -78,6 +78,7 @@ param(
     [int]$Coin,                     #Use a coin (Heads,Tails)
     [int]$MalifauxSuited,           #Use an exhausting deck of cards and malifaux joker logic
     [int]$MalifauxUnsuited,         #Use an exhausting deck of cards, where the suits do not matter and malifaux joker logic
+    [int]$TestDeck,                 #Use an exhausting deck of cards
     #Options
     [switch]$DicePool,              #True if each node has exactly one result and is unchangable (e.g. like rolling dice)
     [switch]$DrawPool,              #True if each 'node' forms a single pool the yeilds one result (e.g. like putting differcont colored rocks in a bag)
@@ -141,7 +142,7 @@ $maxValueOccCount = 0           #The greatest number of times a value can occur 
 $systemNote = ""                #Note do display with secenario summary
 $nodeDelimiter = "&"            #Delimits values on a a multi-value face (e.g. Hit&Hit for a face with two Hit restults)
 $showProcessing = $false        #True if processing info should be displayed to the screen
-$projectedResultCount = 0             #Estimate of how many possible results there will be
+$projectedResultCount = 0       #Calculate the how many possible results the scenario has
 
 
 #Process System Switches
@@ -151,6 +152,7 @@ $projectedResultCount = 0             #Estimate of how many possible results the
 
 #default to using dice pool mechanics
 $DicePool = $true
+$DrawPool = $false
 
 
 
@@ -248,6 +250,7 @@ if($MalifauxUnsuited -gt 0) {
                   "10","10","10","10","11","11","11","11","12","12","12","12","13","13","13","13","RJ")
     $aryNodes = @()
     $aryNodes += ,$aryFaces
+    $script:nodeCount = $MalifauxUnsuited
     $DicePool = $false
     $DrawPool = $true
     $ShowHighLow = $true
@@ -263,6 +266,20 @@ if($MalifauxUnsuited -gt 0) {
     $aryFaces += @("BJ","1","2","3","4","5","6","7","8","9","10","11","12","13","RJ")
     $aryNodes = @()
     $aryNodes += ,$aryFaces
+    $script:nodeCount = $MalifauxSuited
+    $DicePool = $false
+    $DrawPool = $true
+    $ShowHighLow = $true
+}elseif($TestDeck -gt 0) {
+    $systemName = "Test Deck of Cards"
+    $systemNote = "Test Deck of Cards Notes"
+    $NoReplacement=$true
+    $MalifauxJokers=$true
+    $aryFaces = @()
+    $aryFaces += @("BJ","1","1","1","2","2","2","3","3","3","RJ")
+    $aryNodes = @()
+    $aryNodes += ,$aryFaces
+    $script:nodeCount = $TestDeck
     $DicePool = $false
     $DrawPool = $true
     $ShowHighLow = $true
@@ -387,9 +404,11 @@ function Create-UniqueValuesTable {
 function Caclulate-NodeCount {
 
     if($DicePool){
+        #For a dice pool the node count is equal to the number of nodes in the node array
         $script:nodeCount = $script:aryNodes.Count
     }elseif($DrawPool){
-        $script:nodeCount = 0
+        #Do Nothing
+        #The node count for draw pools is calculated when the node arrays are built.
     }else{
         $script:nodeCount = 0
     }
@@ -397,20 +416,34 @@ function Caclulate-NodeCount {
 }
 
 ##################################################################################################
-# Calcluate how many 
+# Calcluate how many possible results the scenario has.
 function Caclulate-ProjectedResultCount {
 
     if($DicePool) {
         $script:projectedResultCount = 1
+        #The numbet of possible results is the number of faces on each die multiplied
+        #by the number of faces on each other die.
+        #e.g. if two d6's and 1 d4 are in the pool there there will be 144 (6 * 6 * 4)
+        #possible results.
         foreach($node in $script:aryNodes){
             $faceCount = $node.Count
             $script:projectedResultCount = $script:projectedResultCount * $faceCount
         }
     }elseif($DrawPool){
-        $script:projectedResultCount = 0
+        $script:projectedResultCount = 1
+
+        #The number of possible outcomes on the first and last draws of the scenario
+        $faceCountOnFirstDraw = $aryFaces.Count
+        $faceCountOnLastDraw = $aryFaces.Count - $script:nodeCount
+
+        #The total number of possible results in the scenario is the number of possible results
+        #in each in node multipled by the rest.
+        #e.g. If there are 6 stones in a bag and three will be drawn then there will be
+        #120 (6 * 5 * 4) possible results.
+        for($i = $faceCountOnFirstDraw; $i -gt $faceCountOnLastDraw; $i--){
+            $script:projectedResultCount = $script:projectedResultCount * $i
+        }
     }
-
-
 }
 
 
@@ -733,22 +766,94 @@ function Calculate-ExactlyX {
 ##################################################################################################
 #Generate the rusults to analyze
 function Generate-BruteForceResult {
-
     #if there is no replacment then a single node is used and 
     if($DicePool) {
-
         Generate-BruteForceResultForDicePool
-
     }else{
+        Generate-BruteForceResultForDrawPool
+    }
+}
 
+
+##################################################################################################
+#Steps through the faces of each node generating every possible combination.  Then that
+#combination is passed onto be analyzed.  For Draw Pools a face is removed from the array once it
+#has been drawn.  
+#E.g. If three nodes are drawn from A,B,B,C then possible results would be ABB, ABC, ABC, and BBC.
+#It is impossible for the a result to have two or more A's or C's; and three or more B's.
+function Generate-BruteForceResultForDrawPool {
+    param(
+        [int]$nodeNum = 0,                #the node number to be proccessed.
+        $Node = $script:aryNodes[0]       #Any array of the faces still left to draw
+
+    )
+
+    if($showProcessing) {write-host "  Generate-BruteForceResultForDrawPool" -ForegroundColor green }
+
+
+
+    #step through each of the faces left in the node
+    for($i = 0;$i -lt $node.count;$i++) {
+        $face = $node[$i]
+        #write the current node to the array of result faces
+        $script:aryResultFaces[$nodeNum] = $face
+
+
+        if($nodeNum -lt $script:nodeCount -1) {
+            #if this is not the last node in the result then draw the next face in the result by
+            #passing the next node number and the the current face array minuse the face currently being 
+            #processed back to this array recursivly.
+            $nextNodeNum = $nodeNum +1
+            $nextNode = Remove-ArrayIndex -index $i -aryArray $node
+            Generate-BruteForceResultForDrawPool -nodeNum $nextNodeNum -Node $nextNode
+        } else {
+            #If this is the last face to be drawn in this result then analyze the result and update the status bar.
+            $script:resultID = $script:resultID +1
+            if($showProcessing) {write-host "    Result: $script:aryResultFaces   Progress: $script:resultID / $script:projectedResultCount" -ForegroundColor yellow }
+            Write-Progress -Activity "Generating Results" -status "Result $script:resultID of $script:projectedResultCount" -percentComplete ($script:resultID / $script:projectedResultCount * 100)
+            Analyze-Result
+
+
+            #write-host "  process: $script:aryResultFaces" -ForegroundColor blue
+
+        }
 
     }
 
 
 
-
-
 }
+
+
+
+##################################################################################################
+#Remove an item from an array
+#Takes an an array and an index as input.  Creates a copy of the array minus the input index
+#and returns the resultant array.
+function Remove-ArrayIndex {
+    param(
+        [int]$index,        #the index of the item to remove  
+        $aryArray           #the array to work on
+    )
+
+    #Create an empty array to work with
+    $workingArry = @()   
+
+    #step through each index in the array
+    for($i = 0;$i -lt $node.count;$i++) {
+        if($i -ne $index) {
+            #if the index does NOT match the input index add the item to the working array
+            $workingArry = $workingArry + $aryArray[$i]
+        }
+    }
+
+    #return the working array
+    return $workingArry
+}
+
+
+
+
 
 
 ##################################################################################################
