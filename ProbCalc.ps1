@@ -276,7 +276,7 @@ if($MalifauxUnsuited -gt 0) {
     $NoReplacement=$true
     $MalifauxJokers=$true
     $aryFaces = @()
-    $aryFaces += @("BJ","1","1","1","2","2","2","3","3","3","RJ")
+    $aryFaces += @("BJ","1&1","1&1&1","1","2","2","2","3","3","3","RJ")
     $aryNodes = @()
     $aryNodes += ,$aryFaces
     $script:nodeCount = $TestDeck
@@ -447,15 +447,38 @@ function Caclulate-ProjectedResultCount {
 }
 
 
+#yyy
+function Caclulate-HighestPossibleOccurance {
+
+    
+    if($DicePool) {
+        #if the current scenario is a draw pool then use the function
+        #below to calculate the 
+        Caclulate-HighestPossibleOccuranceForDicePool
+    }elseif($DrawPool){
+        Caclulate-HighestPossibleOccuranceForDrawPool
+    }else{
+        $script:maxValueOccCount = 0
+    }
+
+}
+
+
+
+
+
+
+
 ##################################################################################################
 #Calculates the maximum number of times any one result can appear.
 #E.g. if the nodes are A,B,C and AA,A,A then A can appear up to 3 times, B and C can appear up to
 #1 time each, so would return 3.
 
-function Caclulate-HighestPossibleOccurance {
+
+function Caclulate-HighestPossibleOccuranceForDicePool {
 
     #$showProcessing = $true
-    if($showProcessing) {write-host "  `nCaclulate-HighestPossibleOccurance" -ForegroundColor green }
+    if($showProcessing) {write-host "  `nCaclulate-HighestPossibleOccuranceForDicePool" -ForegroundColor green }
 
     #the highest number of occurnaces for any value
     $highestTotalOccCount = 0
@@ -465,6 +488,8 @@ function Caclulate-HighestPossibleOccurance {
     foreach ($uniqueValue in $script:aryUniqueValues) {
         if($showProcessing) {write-host "      Matching Against: $uniqueValue " -ForegroundColor blue}
         $totalOccCount = 0
+
+
 
         #Step through each node
         foreach($node in $script:aryNodes) {
@@ -509,9 +534,107 @@ function Caclulate-HighestPossibleOccurance {
         if($showProcessing) {write-host "          Highest Possible Number of $uniqueValue = $totalOccCount" }
 
     }#end uniqueValue foreach
+
+
+    write-host "highestTotalOccCount: $highestTotalOccCount" -ForegroundColor blue
+
     $script:maxValueOccCount = $highestTotalOccCount
     if($showProcessing) {write-host "            Highest Possible Number of any value = $highestTotalOccCount" }
 }
+
+
+
+
+
+##################################################################################################
+#Calculates the maximum number of times any one result can appear for a Draw Pool
+#E.g. if the faces are AA,A,A,B,C and two draws are made then A can appear up to 3 times, B and C can appear up to
+#1 time each, so would return 3.
+#yyy
+
+function Caclulate-HighestPossibleOccuranceForDrawPool {
+
+    if($showProcessing) {write-host "  `nCaclulate-HighestPossibleOccuranceForDrawPool" -ForegroundColor green }
+
+    #the highest number of occurnaces possible for any value
+    $highestTotalOccCount = 0
+
+    #Step through each possible value that could occure in the scenario. Each loop will look for
+    #the most number of times the current face can possibly occure.
+    foreach ($uniqueValue in $script:aryUniqueValues) {
+        #set the total numebt of times that the value has been seen so far to 0
+        $totalOccCount = 0
+        #Set the draw pool to include each face once
+        $drawPool = $script:aryNodes[0]
+
+        #Step through each draw for the scenario.  If five faces will be drawn then this loop will
+        #be executed five times, looking for the face with the most matching values.
+        for($iDraw = 1; $iDraw -le $script:nodeCount; $iDraw++) {
+            #Set the highest number of occurances of the current value found on a single face to 0 and the
+            #index of the face where that value was found to -1 (This is outside the bounds of the array).
+            $highestOccCountPerFace = 0
+            $indexOfhighestOccCountPerFace = -1
+
+            #Step through each face in the DrawPool
+            for($iFace = 0;$iFace -lt $($drawPool.count);$iFace++) {
+                $face = $drawPool[$iFace]
+
+                #Set the number of matching values found on this face to 0
+                $OccCount = 0
+
+                #break the face into an array of individual values
+                if(isNumeric $face) {
+                    $values = $face
+                }else{
+                    #$values = $face.split("{$nodeDelimiter}")
+                    $values = Parse-Face -Face $face
+                }
+
+                #Step through each value on the face.  If it matches incriment OccCount.
+                foreach($value in $values){
+                    if($value -eq $uniqueValue){
+                        $OccCount = $OccCount +1
+                        if($showProcessing) {write-host "        $uniqueValue  = $value  Occ Count = $OccCount   [Face: $face]    Node: $node" -ForegroundColor green}
+                    } else {
+                        if($showProcessing) {write-host "        $uniqueValue != $value  Occ Count = $OccCount   [Face: $face]    Node: $node" -ForegroundColor Red}
+                    }
+                }
+
+                #if this is the face with the greatest count for the current value then track it.
+                if($OccCount -gt $highestOccCountPerFace) {
+                    $highestOccCountPerFace = $OccCount
+                    $indexOfhighestOccCountPerFace = $iFace
+                }
+            }#end iFace foreach
+
+            #Add the highest possible occ count for this face to the highest occ count for this node.
+            $totalOccCount = $totalOccCount + $highestOccCountPerFace 
+            if($showProcessing) {write-host "        Most $uniqueValue/Face on this node = $highestOccCountPerFace  " -ForegroundColor yellow}
+
+            #remove the used face from the drawpool
+            $nextDrawPool = Remove-ArrayIndex -index $indexOfhighestOccCountPerFace -aryArray $drawPool
+            $drawPool = $nextDrawPool
+
+            #if this value has more possible occurnaces than any other then use its value
+            if($totalOccCount -gt $highestTotalOccCount){
+                $highestTotalOccCount = $totalOccCount
+            }
+        } #end iDraw Foreach
+    }#end uniqueValue foreach
+
+    $script:maxValueOccCount = $highestTotalOccCount
+    
+}
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -530,6 +653,9 @@ function Create-OccuranceSummaryTables {
 
     #Create a column for the value name, and for each value from 0 to the highest possible occurance of any value.
     $colCount = $script:maxValueOccCount + 2
+
+
+    write-host "rowCount $rowCount / colCount $colCount" -ForegroundColor red
 
     #Create the Brute Force arrays.
     $script:aryBFExactlyXTable = New-Object 'object[,]' $rowCount,$colCount
@@ -840,7 +966,7 @@ function Remove-ArrayIndex {
     $workingArry = @()   
 
     #step through each index in the array
-    for($i = 0;$i -lt $node.count;$i++) {
+    for($i = 0;$i -lt $aryArray.count;$i++) {
         if($i -ne $index) {
             #if the index does NOT match the input index add the item to the working array
             $workingArry = $workingArry + $aryArray[$i]
@@ -1053,6 +1179,7 @@ function Analyze-ResultForExactlyX {
         if($showProcessing) {
             write-host "    $value occ: $tally" -ForegroundColor green 
         }
+
 
         Incriment-SummaryArray -Value $value -OccCount $tally -ExactlyX
     }
