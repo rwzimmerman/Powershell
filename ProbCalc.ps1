@@ -42,9 +42,6 @@
         Updated: Feb 2018
 
         To Do:
-            Get Draw Pools Working
-            Get Exhausting BF working
-            Get Malifaux Jokers BE Working
             Add Rerolls
             Get ALL Calcs working
             Add CSV Export
@@ -277,6 +274,7 @@ if($MalifauxUnsuited -gt 0) {
     $MalifauxJokers=$true
     $aryFaces = @()
     $aryFaces += @("BJ","1&1","1&1&1","1","2","2","2","3","3","3","RJ")
+    #$aryFaces += @("BJ","1","1","2","2","3","3","RJ")
     $aryNodes = @()
     $aryNodes += ,$aryFaces
     $script:nodeCount = $TestDeck
@@ -447,7 +445,8 @@ function Caclulate-ProjectedResultCount {
 }
 
 
-#yyy
+##################################################################################################
+#Calculates the maximum number of times any one result can appear.
 function Caclulate-HighestPossibleOccurance {
 
     
@@ -470,7 +469,7 @@ function Caclulate-HighestPossibleOccurance {
 
 
 ##################################################################################################
-#Calculates the maximum number of times any one result can appear.
+#Calculates the maximum number of times any one result can appear in a Dice Pool.
 #E.g. if the nodes are A,B,C and AA,A,A then A can appear up to 3 times, B and C can appear up to
 #1 time each, so would return 3.
 
@@ -548,82 +547,57 @@ function Caclulate-HighestPossibleOccuranceForDicePool {
 
 ##################################################################################################
 #Calculates the maximum number of times any one result can appear for a Draw Pool
-#E.g. if the faces are AA,A,A,B,C and two draws are made then A can appear up to 3 times, B and C can appear up to
-#1 time each, so would return 3.
-#yyy
-
+#E.g. if the faces are AA,A,A,B,C and two draws are made then A can appear up to 3 times, 
+#B and C can appear up to 1 time each, so would return 3.
+#It is possible for this algorytym to have an inflated max value count in some cases.  That 
+#should not cause any issue other than too many rows in the displayed tables.  Where as
+#too few rows will cuase out of bounds issues in the arrays.  A more accurate algorythm will
+#be much more complex and slow processing.  So (at least for now) I've decided to use this
+#simpler algorythm.
 function Caclulate-HighestPossibleOccuranceForDrawPool {
 
     if($showProcessing) {write-host "  `nCaclulate-HighestPossibleOccuranceForDrawPool" -ForegroundColor green }
 
     #the highest number of occurnaces possible for any value
-    $highestTotalOccCount = 0
+    $totalValueCount = 0
 
-    #Step through each possible value that could occure in the scenario. Each loop will look for
-    #the most number of times the current face can possibly occure.
-    foreach ($uniqueValue in $script:aryUniqueValues) {
-        #set the total numebt of times that the value has been seen so far to 0
-        $totalOccCount = 0
-        #Set the draw pool to include each face once
-        $drawPool = $script:aryNodes[0]
+    #get the draw pool
+    $drawPool = $script:aryNodes[0]
 
-        #Step through each draw for the scenario.  If five faces will be drawn then this loop will
-        #be executed five times, looking for the face with the most matching values.
-        for($iDraw = 1; $iDraw -le $script:nodeCount; $iDraw++) {
-            #Set the highest number of occurances of the current value found on a single face to 0 and the
-            #index of the face where that value was found to -1 (This is outside the bounds of the array).
-            $highestOccCountPerFace = 0
-            $indexOfhighestOccCountPerFace = -1
-
-            #Step through each face in the DrawPool
-            for($iFace = 0;$iFace -lt $($drawPool.count);$iFace++) {
-                $face = $drawPool[$iFace]
-
-                #Set the number of matching values found on this face to 0
-                $OccCount = 0
-
-                #break the face into an array of individual values
-                if(isNumeric $face) {
-                    $values = $face
-                }else{
-                    #$values = $face.split("{$nodeDelimiter}")
-                    $values = Parse-Face -Face $face
-                }
-
-                #Step through each value on the face.  If it matches incriment OccCount.
-                foreach($value in $values){
-                    if($value -eq $uniqueValue){
-                        $OccCount = $OccCount +1
-                        if($showProcessing) {write-host "        $uniqueValue  = $value  Occ Count = $OccCount   [Face: $face]    Node: $node" -ForegroundColor green}
-                    } else {
-                        if($showProcessing) {write-host "        $uniqueValue != $value  Occ Count = $OccCount   [Face: $face]    Node: $node" -ForegroundColor Red}
-                    }
-                }
-
-                #if this is the face with the greatest count for the current value then track it.
-                if($OccCount -gt $highestOccCountPerFace) {
-                    $highestOccCountPerFace = $OccCount
-                    $indexOfhighestOccCountPerFace = $iFace
-                }
-            }#end iFace foreach
-
-            #Add the highest possible occ count for this face to the highest occ count for this node.
-            $totalOccCount = $totalOccCount + $highestOccCountPerFace 
-            if($showProcessing) {write-host "        Most $uniqueValue/Face on this node = $highestOccCountPerFace  " -ForegroundColor yellow}
-
-            #remove the used face from the drawpool
-            $nextDrawPool = Remove-ArrayIndex -index $indexOfhighestOccCountPerFace -aryArray $drawPool
-            $drawPool = $nextDrawPool
-
-            #if this value has more possible occurnaces than any other then use its value
-            if($totalOccCount -gt $highestTotalOccCount){
-                $highestTotalOccCount = $totalOccCount
-            }
-        } #end iDraw Foreach
-    }#end uniqueValue foreach
-
-    $script:maxValueOccCount = $highestTotalOccCount
+    #Step through each time a node will be drawn.  So if three cards will be drawn from a deck
+    #go through the loop three times.  Each time find the highest number of values that can result.
+    #If a card has three 2's on it that it would yeild three values.
+    for($iDraw = 1;$iDraw -le $script:nodeCount; $iDraw++) {
     
+        #initialize the values used in the $draw loop below
+        $index = -1                       #The index of the curent face being examined
+        $highestValueCount = 0            #The highest number of values found on a face for this iteration.  
+        $highestValueCountIndex = -1      #The index of the face that has the highest number of values found on a face for this iteration.  
+        #step through each possible face that can be drawn from the pool.  If a face is used then it will be removed from the
+        #pool for the next iteration.
+        foreach($draw in $drawPool) {
+            #increase the index of the current draw by one
+            $index++
+            #get the number of values on the face by counting the number of delimiters found and adding one.
+            $valueCount = ($draw.ToCharArray() | Where-Object {$_ -eq $nodeDelimiter} | Measure-Object).Count
+            $valueCount++
+            #if this is the highest found so far then note the count and the index of the face
+            if($valueCount -gt $highestValueCount) {
+                $highestValueCount = $valueCount
+                $highestValueCountIndex = $index
+            }
+        }
+        
+        #Add the highest value count found to the total value count
+        $totalValueCount = $totalValueCount + $highestValueCount
+
+        #remove the used face from the drawpool
+        $nextDrawPool = Remove-ArrayIndex -index $highestValueCountIndex -aryArray $drawPool
+        $drawPool = $nextDrawPool
+    }
+
+    #write total highest value cound back to the script variables.
+    $script:maxValueOccCount = $totalValueCount
 }
 
 
@@ -653,7 +627,6 @@ function Create-OccuranceSummaryTables {
 
     #Create a column for the value name, and for each value from 0 to the highest possible occurance of any value.
     $colCount = $script:maxValueOccCount + 2
-
 
     write-host "rowCount $rowCount / colCount $colCount" -ForegroundColor red
 
@@ -911,19 +884,15 @@ function Generate-BruteForceResultForDrawPool {
     param(
         [int]$nodeNum = 0,                #the node number to be proccessed.
         $Node = $script:aryNodes[0]       #Any array of the faces still left to draw
-
     )
 
     if($showProcessing) {write-host "  Generate-BruteForceResultForDrawPool" -ForegroundColor green }
-
-
 
     #step through each of the faces left in the node
     for($i = 0;$i -lt $node.count;$i++) {
         $face = $node[$i]
         #write the current node to the array of result faces
         $script:aryResultFaces[$nodeNum] = $face
-
 
         if($nodeNum -lt $script:nodeCount -1) {
             #if this is not the last node in the result then draw the next face in the result by
@@ -938,16 +907,8 @@ function Generate-BruteForceResultForDrawPool {
             if($showProcessing) {write-host "    Result: $script:aryResultFaces   Progress: $script:resultID / $script:projectedResultCount" -ForegroundColor yellow }
             Write-Progress -Activity "Generating Results" -status "Result $script:resultID of $script:projectedResultCount" -percentComplete ($script:resultID / $script:projectedResultCount * 100)
             Analyze-Result
-
-
-            #write-host "  process: $script:aryResultFaces" -ForegroundColor blue
-
         }
-
     }
-
-
-
 }
 
 
@@ -1202,18 +1163,26 @@ function Analyze-ResultForHighAndLowFace {
     $lowestValue = $aryResultValues[0]
     $highestValue = $aryResultValues[$($aryResultValues.Count -1)]
 
+    #If Malifaux Jokers are in effect then the BJ (Black Joker) must always be used, so in those
+    #cases it will be the highest card drawn.
+    if ($MalifauxJokers) {
+        if ($lowestValue -eq "BJ") {
+            $highestValue = $lowestValue
+        }
+    }
+
     #Increment the Highest and Lowest Value arrays
     Incriment-SummaryArray -Value $lowestValue -LowValue -BruteForce
     Incriment-SummaryArray -Value $highestValue -highValue -BruteForce
 }
 
 
+
+
 ##################################################################################################
 #Looks at the current result and writes data to the 'X or better' table
 #This is the first step in the table the coumns need to be summed for
 #that data to be meaniningful
-
-
 function Analyze-ResultForXOrBetter {
 
     if($showProcessing) {write-host "  Analyze-ResultForXOrBetter" -ForegroundColor green }
@@ -1226,9 +1195,10 @@ function Analyze-ResultForXOrBetter {
         #from low to high value the number of values to be processed is how many of the current value or better
         #occured in this result. 
         $quant = ($colCount) - $col
+        #get the name of the value being processed
         $valueName = $script:aryResultValues[$col]
-        #Step thorough each possible value from lowest to highest. Incriment each of those value/quantities 
-        #until the matching quantity is found.  E.g. if the current colum is for 2 threes, then first 2 ones
+        #Step through each possible value from lowest to highest. Incriment each of those value/quantities 
+        #until the matching quantity is found.  E.g. if the current column is for 2 threes, then first 2 ones
         #will be incrimented, then 2 twos, then 2 threes.  Then the loop will repeat for the next column
         #in the result which will be 1 three, which will incriment 1 one, 1 two and 1 three.  After that
         #then next column in the result will be processed which will have a value of four or more.
